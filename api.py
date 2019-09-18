@@ -6,7 +6,7 @@ from sanic.request import Request
 from sanic.exceptions import ServiceUnavailable
 from sanic_restplus import Api, Resource, fields
 
-from functions import get_linksets, get_datasets
+from functions import get_linksets, get_datasets, get_locations
 
 url_prefix = 'api/v1'
 
@@ -57,5 +57,26 @@ class Dataset(Resource):
         response = {
             "meta": meta,
             "datasets": datasets,
+        }
+        return json(response, status=200)
+
+@ns.route('/locations')
+class Location(Resource):
+    """Operations on LOCI Locations"""
+
+    @ns.doc('get_locations', params=OrderedDict([
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Gets all LOCI Locations"""
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        meta, locations = await get_locations(count, offset)
+        response = {
+            "meta": meta,
+            "datasets": locations,
         }
         return json(response, status=200)

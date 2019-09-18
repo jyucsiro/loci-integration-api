@@ -81,3 +81,34 @@ WHERE {
         'offset': offset,
     }
     return meta, datasets
+
+async def get_locations(count=1000, offset=0):
+    """
+    :param count:
+    :type count: int
+    :param offset:
+    :type offset: int
+    :return:
+    """
+    sparql = """\
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+SELECT DISTINCT ?l
+WHERE {
+    { ?l a geo:Feature }
+    UNION
+    { ?l a prov:Location } .
+}
+"""
+    resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
+    datasets = []
+    if 'results' not in resp:
+        return datasets
+    bindings = resp['results']['bindings']
+    for b in bindings:
+        datasets.append(b['l']['value'])
+    meta = {
+        'count': len(datasets),
+        'offset': offset,
+    }
+    return meta, datasets

@@ -1,0 +1,6 @@
+sanic>=19.6.0,<19.7
+sanic-plugins-framework>=0.8.2,<0.9
+sanic-cors>=0.9.9,<0.10
+sanic-restplus>=0.4.0,<0.5
+aiohttp>=3.5.0,<3.6
+

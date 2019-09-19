@@ -101,14 +101,93 @@ WHERE {
 }
 """
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
-    datasets = []
+    locations = []
     if 'results' not in resp:
-        return datasets
+        return locations
     bindings = resp['results']['bindings']
     for b in bindings:
-        datasets.append(b['l']['value'])
+        locations.append(b['l']['value'])
     meta = {
-        'count': len(datasets),
+        'count': len(locations),
         'offset': offset,
     }
-    return meta, datasets
+    return meta, locations
+
+
+async def get_location_is_within(target_uri, count=1000, offset=0):
+    """
+    :param target_uri:
+    :type target_uri: str
+    :param count:
+    :type count: int
+    :param offset:
+    :type offset: int
+    :return:
+    """
+    sparql = """\
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+SELECT DISTINCT ?l
+WHERE {
+    {
+        ?s rdf:subject <URI> ;
+           rdf:predicate geo:sfWithin ;
+           rdf:object ?l  .
+    }
+    UNION
+    { <URI> geo:sfWithin ?l }
+}
+"""
+    sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+    resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
+    locations = []
+    if 'results' not in resp:
+        return locations
+    bindings = resp['results']['bindings']
+    for b in bindings:
+        locations.append(b['l']['value'])
+    meta = {
+        'count': len(locations),
+        'offset': offset,
+    }
+    return meta, locations
+
+async def get_location_contains(target_uri, count=1000, offset=0):
+    """
+    :param target_uri:
+    :type target_uri: str
+    :param count:
+    :type count: int
+    :param offset:
+    :type offset: int
+    :return:
+    """
+    sparql = """\
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+SELECT DISTINCT ?l
+WHERE {
+    {
+        ?s rdf:subject <URI> ;
+           rdf:predicate geo:sfContains;
+           rdf:object ?l  .
+    }
+    UNION
+    { <URI> geo:sfContains ?l }
+}
+"""
+    sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+    resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
+    locations = []
+    if 'results' not in resp:
+        return locations
+    bindings = resp['results']['bindings']
+    for b in bindings:
+        locations.append(b['l']['value'])
+    meta = {
+        'count': len(locations),
+        'offset': offset,
+    }
+    return meta, locations

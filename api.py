@@ -6,7 +6,7 @@ from sanic.request import Request
 from sanic.exceptions import ServiceUnavailable
 from sanic_restplus import Api, Resource, fields
 
-from functions import get_linksets, get_datasets, get_locations
+from functions import get_linksets, get_datasets, get_locations, get_location_is_within, get_location_contains
 
 url_prefix = 'api/v1'
 
@@ -77,6 +77,65 @@ class Location(Resource):
         meta, locations = await get_locations(count, offset)
         response = {
             "meta": meta,
-            "datasets": locations,
+            "locations": locations,
+        }
+        return json(response, status=200)
+
+
+## The following are non-standard usage of REST/Swagger.
+## These are function routes, not resources. But we still define them as an API resource,
+## so that they get a GET endpoint and they get auto-documented.
+
+
+ns_loc_func = api_v1.namespace(
+    "loc-func", "Location Functions",
+    api=api_v1,
+    path='/location/',
+)
+@ns_loc_func.route('/within')
+class Within(Resource):
+    """Function for location is Within"""
+
+    @ns.doc('get_location_within', params=OrderedDict([
+        ("uri", {"description": "Target LOCI Location/Feature URI",
+                    "required": True, "type": "string"}),
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Gets all LOCI Locations that this target LOCI URI is within"""
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        target_uri = str(next(iter(request.args.getlist('uri'))))
+        meta, locations = await get_location_is_within(target_uri, count, offset)
+        response = {
+            "meta": meta,
+            "locations": locations,
+        }
+        return json(response, status=200)
+
+@ns_loc_func.route('/contains')
+class Contains(Resource):
+    """Function for location Contains"""
+
+    @ns.doc('get_location_contains', params=OrderedDict([
+        ("uri", {"description": "Target LOCI Location/Feature URI",
+                    "required": True, "type": "string"}),
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Gets all LOCI Locations that this target LOCI URI contains"""
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        target_uri = str(next(iter(request.args.getlist('uri'))))
+        meta, locations = await get_location_contains(target_uri, count, offset)
+        response = {
+            "meta": meta,
+            "locations": locations,
         }
         return json(response, status=200)

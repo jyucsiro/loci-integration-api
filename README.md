@@ -6,6 +6,14 @@ This application provides a convenient interface for executing common functions 
 ## Implementation
 Uses Sanic Asynchronous HTTP Service with the Sanic-Restplus plugin to generate API endpoint, and to auto-document the SwaggerUI.
 
+## Run
+
+docker-compose is included for an containerized local deployment
+
+## Test/Develop
+
+run `docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build` to build in dev model and run a container for running tests or development
+
 ## License
 The license of this document is TBD
 

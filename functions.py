@@ -1,14 +1,34 @@
 # -*- coding: utf-8 -*-
 #
+import asyncio
 from aiohttp import ClientSession
 from config import TRIPLESTORE_CACHE_SPARQL_ENDPOINT
 from json import loads
 
 
 async def query_graphdb_endpoint(sparql, infer=True, same_as=True, limit=1000, offset=0):
-    session = query_graphdb_endpoint.session
-    if not session:
-        query_graphdb_endpoint.session = session = ClientSession()
+    """
+    Pass the SPARQL query to the endpoint. The endpoint is specified in the config file.
+
+    :param sparql: the valid SPARQL text
+    :type sparql: str
+    :param infer:
+    :type infer: bool
+    :param same_as:
+    :type same_as: bool
+    :param limit:
+    :type limit: int
+    :param offset:
+    :type offset: int
+    :return:
+    :rtype: dict
+    """
+    loop = asyncio.get_event_loop()
+    try:
+        session = query_graphdb_endpoint.session_cache[loop]
+    except KeyError:
+        session = ClientSession(loop=loop)
+        query_graphdb_endpoint.session_cache[loop] = session
     args = {
         'query': sparql,
         'infer': 'true' if bool(infer) else 'false',
@@ -23,7 +43,7 @@ async def query_graphdb_endpoint(sparql, infer=True, same_as=True, limit=1000, o
     resp = await session.request('POST', TRIPLESTORE_CACHE_SPARQL_ENDPOINT, data=args, headers=headers)
     resp_content = await resp.text()
     return loads(resp_content)
-query_graphdb_endpoint.session = None
+query_graphdb_endpoint.session_cache = {}
 
 
 async def get_linksets(count=1000, offset=0):
@@ -33,6 +53,7 @@ async def get_linksets(count=1000, offset=0):
     :param offset:
     :type offset: int
     :return:
+    :rtype: tuple
     """
     sparql = """\
 PREFIX loci: <http://linked.data.gov.au/def/loci#>
@@ -61,6 +82,7 @@ async def get_datasets(count=1000, offset=0):
     :param offset:
     :type offset: int
     :return:
+    :rtype: tuple
     """
     sparql = """\
 PREFIX dcat: <http://www.w3.org/ns/dcat#>
@@ -89,6 +111,7 @@ async def get_locations(count=1000, offset=0):
     :param offset:
     :type offset: int
     :return:
+    :rtype: tuple
     """
     sparql = """\
 PREFIX geo: <http://www.opengis.net/ont/geosparql#>
@@ -123,6 +146,7 @@ async def get_location_is_within(target_uri, count=1000, offset=0):
     :param offset:
     :type offset: int
     :return:
+    :rtype: tuple
     """
     sparql = """\
 PREFIX geo: <http://www.opengis.net/ont/geosparql#>
@@ -162,6 +186,7 @@ async def get_location_contains(target_uri, count=1000, offset=0):
     :param offset:
     :type offset: int
     :return:
+    :rtype: tuple
     """
     sparql = """\
 PREFIX geo: <http://www.opengis.net/ont/geosparql#>

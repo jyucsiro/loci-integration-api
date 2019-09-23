@@ -1,20 +1,20 @@
 import pytest
 import json
-from app import app 
+from app import create_app
 
-data = [] 
-with open('./loci-testdata/test_case_withins_result.json') as json_file:  
+data = []
+with open('./loci-testdata/test_case_withins_result.json') as json_file:
     json_data = json.load(json_file)
 
 data = [{ akey: json_data[akey]} for akey in json_data.keys()]
 
 @pytest.yield_fixture
-def aapp():
-    yield app
+def app():
+    yield create_app()
 
 @pytest.fixture
-def test_cli(loop, sanic_client, aapp):
-    return loop.run_until_complete(sanic_client(aapp))
+def test_cli(loop, sanic_client, app):
+    return loop.run_until_complete(sanic_client(app))
 
 async def test_index(test_cli):
     resp = await test_cli.get('/')

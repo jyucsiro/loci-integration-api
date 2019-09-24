@@ -6,7 +6,8 @@ from sanic.request import Request
 from sanic.exceptions import ServiceUnavailable
 from sanic_restplus import Api, Resource, fields
 
-from functions import get_linksets, get_datasets, get_locations, get_location_is_within, get_location_contains
+from functions import get_linksets, get_datasets, get_locations, get_location_is_within, get_location_contains, \
+    get_resource
 
 url_prefix = 'api/v1'
 
@@ -16,6 +17,7 @@ api_v1 = Api(title="LOCI Integration API",
              default_mediatype="application/json",
              additional_css="/static/material_swagger.css")
 ns = api_v1.default_namespace
+
 
 @ns.route('/linksets')
 class Linkset(Resource):
@@ -60,6 +62,7 @@ class Dataset(Resource):
         }
         return json(response, status=200)
 
+
 @ns.route('/locations')
 class Location(Resource):
     """Operations on LOCI Locations"""
@@ -80,6 +83,21 @@ class Location(Resource):
             "locations": locations,
         }
         return json(response, status=200)
+
+
+@ns.route('/resource')
+class _Resource(Resource):
+    """Operations on LOCI Resource"""
+
+    @ns.doc('get_resource', params=OrderedDict([
+        ("uri", {"description": "Target LOCI Location/Feature URI",
+                 "required": True, "type": "string"}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Gets a LOCI Resource"""
+        resource_uri = str(next(iter(request.args.getlist('uri'))))
+        resource = await get_resource(resource_uri)
+        return json(resource, status=200)
 
 
 ## The following are non-standard usage of REST/Swagger.

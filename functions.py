@@ -114,9 +114,17 @@ async def get_linksets(count=1000, offset=0):
     """
     sparql = """\
 PREFIX loci: <http://linked.data.gov.au/def/loci#>
-SELECT ?l
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT DISTINCT ?l
 WHERE {
-    ?l a loci:Linkset .
+    {
+        ?l a loci:Linkset .
+    }
+    UNION
+    {
+        ?c rdfs:subClassOf+ loci:Linkset .
+        ?l a ?c .
+    }
 }
 """
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
@@ -142,9 +150,17 @@ async def get_datasets(count=1000, offset=0):
     """
     sparql = """\
 PREFIX dcat: <http://www.w3.org/ns/dcat#>
-SELECT ?d
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT DISTINCT ?d
 WHERE {
-    ?d a dcat:Dataset .
+    {
+        ?d a dcat:Dataset .
+    }
+    UNION
+    {
+        ?c rdfs:subClassOf+ dcat:Dataset .
+        ?d a ?c .
+    }
 }
 """
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
@@ -171,11 +187,35 @@ async def get_locations(count=1000, offset=0):
     sparql = """\
 PREFIX geo: <http://www.opengis.net/ont/geosparql#>
 PREFIX prov: <http://www.w3.org/ns/prov#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 SELECT DISTINCT ?l
 WHERE {
     { ?l a geo:Feature }
     UNION
-    { ?l a prov:Location } .
+    {
+        ?c1 rdfs:subClassOf+ geo:Feature .
+        ?l a ?c1 .
+    }
+    UNION
+    {
+        ?s1 rdf:subject ?l ;
+            rdf:predicate rdf:type ;
+            rdf:object geo:Feature .
+    }
+    UNION
+    { ?l a prov:Location }
+    UNION
+    {
+        ?c2 rdfs:subClassOf+ prov:Location .
+        ?l a ?c2 .
+    }
+    UNION
+    {
+        ?s2 rdf:subject ?l ;
+            rdf:predicate rdf:type ;
+            rdf:object prov:Location .
+    } .
 }
 """
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
@@ -214,7 +254,7 @@ WHERE {
            rdf:object ?l  .
     }
     UNION
-    { <URI> geo:sfWithin ?l }
+    { <URI> geo:sfWithin+ ?l }
 }
 """
     sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
@@ -253,7 +293,7 @@ WHERE {
            rdf:object ?l  .
     }
     UNION
-    { <URI> geo:sfContains ?l }
+    { <URI> geo:sfContains+ ?l }
 }
 """
     sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))

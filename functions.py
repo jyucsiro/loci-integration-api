@@ -43,7 +43,7 @@ WHERE {
         OPTIONAL { FILTER (isBlank(?o))
             {
                 ?s2 rdf:subject ?o ;
-                rdf:predicate ?p;
+                rdf:predicate ?p1;
                 rdf:object ?o1 .
             }
             UNION
@@ -59,7 +59,7 @@ WHERE {
         OPTIONAL { FILTER (isBlank(?o))
             {
                 ?s3 rdf:subject ?o ;
-                rdf:predicate ?p;
+                rdf:predicate ?p1;
                 rdf:object ?o1 .
             }
             UNION

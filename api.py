@@ -160,7 +160,7 @@ class Contains(Resource):
         return json(response, status=200)
 
 @ns_loc_func.route('/overlaps')
-class Contains(Resource):
+class Overlaps(Resource):
     """Function for location Overlaps"""
 
     @ns.doc('get_location_contains', params=OrderedDict([

@@ -7,7 +7,7 @@ from sanic.exceptions import ServiceUnavailable
 from sanic_restplus import Api, Resource, fields
 
 from functions import get_linksets, get_datasets, get_locations, get_location_is_within, get_location_contains, \
-    get_resource
+    get_resource, get_location_overlaps
 
 url_prefix = 'api/v1'
 
@@ -18,6 +18,7 @@ api_v1 = Api(title="LOCI Integration API",
              additional_css="/static/material_swagger.css")
 ns = api_v1.default_namespace
 
+TRUTHS = ("t", "T", "1")
 
 @ns.route('/linksets')
 class Linkset(Resource):
@@ -155,5 +156,47 @@ class Contains(Resource):
         response = {
             "meta": meta,
             "locations": locations,
+        }
+        return json(response, status=200)
+
+@ns_loc_func.route('/overlaps')
+class Contains(Resource):
+    """Function for location Overlaps"""
+
+    @ns.doc('get_location_contains', params=OrderedDict([
+        ("uri", {"description": "Target LOCI Location/Feature URI",
+                 "required": True, "type": "string"}),
+        ("areas", {"description": "Include areas of overlapping features in m2",
+                   "required": False, "type": "boolean", "default": False}),
+        ("proportion", {"description": "Include proportion of overlap in percent",
+                         "required": False, "type": "boolean", "default": False}),
+        ("contains", {"description": "Include locations wholly contained in this feature",
+                        "required": False, "type": "boolean", "default": False}),
+        ("within", {"description": "Include features this location is wholly within",
+                    "required": False, "type": "boolean", "default": False}),
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Gets all LOCI Locations that this target LOCI URI overlaps with\n
+        Note: count and offset do not currently work properly on /overlaps """
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        target_uri = str(next(iter(request.args.getlist('uri'))))
+        include_areas = str(next(iter(request.args.getlist('areas', ['false']))))
+        include_proportion = str(next(iter(request.args.getlist('proportion', ['false']))))
+        include_contains = str(next(iter(request.args.getlist('contains', ['false']))))
+        include_within = str(next(iter(request.args.getlist('within', ['false']))))
+        include_areas = include_areas[0] in TRUTHS
+        include_proportion = include_proportion[0] in TRUTHS
+        include_contains = include_contains[0] in TRUTHS
+        include_within = include_within[0] in TRUTHS
+        meta, overlaps = await get_location_overlaps(target_uri, include_areas, include_proportion, include_within,
+                                                     include_contains, count, offset)
+        response = {
+            "meta": meta,
+            "overlaps": overlaps,
         }
         return json(response, status=200)

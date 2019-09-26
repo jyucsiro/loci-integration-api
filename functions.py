@@ -484,7 +484,7 @@ GROUP BY ?o
     extras = ""
     if include_contains:
         use_selects = selects
-        if include_areas:
+        if use_areas_sparql:
             extras = areas_sparql
             use_selects += area_selects
         sparql = contains_sparql.replace("<SELECTS>", use_selects)
@@ -497,7 +497,7 @@ GROUP BY ?o
         extras = ""
     if include_within:
         use_selects = selects
-        if include_areas:
+        if use_areas_sparql:
             extras = areas_sparql
             use_selects += area_selects
         sparql = within_sparql.replace("<SELECTS>", use_selects)

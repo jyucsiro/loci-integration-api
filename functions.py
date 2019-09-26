@@ -500,7 +500,7 @@ GROUP BY ?o
         if include_areas:
             extras = areas_sparql
             use_selects += area_selects
-        sparql = within_sparql.replace("<SELECTS>", selects)
+        sparql = within_sparql.replace("<SELECTS>", use_selects)
         sparql = sparql.replace("<EXTRAS>", extras)
         sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
         resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
@@ -514,7 +514,7 @@ GROUP BY ?o
         for b in bindings:
             overlaps.append(b['o']['value'])
     else:
-        d100 = Decimal(100.0)
+        d100 = Decimal("100.0")
         try:
             uarea = bindings[0]['uarea']
         except (LookupError, AttributeError):
@@ -538,22 +538,32 @@ GROUP BY ?o
 
             overlaps.append(o_dict)
             try:
-                oarea = bindings[0]['oarea']
+                oarea = b['oarea']
             except (LookupError, AttributeError):
                 continue
             o_area = round(Decimal(oarea['value']), 8)
             if include_areas:
                 o_dict['featureArea'] = str(o_area)
             if include_proportion:
-                try:
-                    i_area = round(Decimal(b['iarea']['value']), 8)
-                except (LookupError, AttributeError):
-                    continue
-
+                if include_within and is_w:
+                    my_proportion = d100
+                    other_proportion = (my_area / o_area) * d100
+                    i_area = my_area
+                elif include_contains and has_c:
+                    my_proportion = (o_area / my_area) * d100
+                    other_proportion = d100
+                    i_area = o_area
+                else:
+                    try:
+                        i_area = Decimal(b['iarea']['value'])
+                    except (LookupError, AttributeError):
+                        continue
+                    my_proportion = (i_area / my_area) * d100
+                    other_proportion = (i_area / o_area) * d100
                 if include_areas:
-                    o_dict['intersectionArea'] = str(i_area)
-                my_proportion = round((i_area / my_area) * d100, 8)
-                other_proportion = round((i_area / o_area) * d100, 8)
+                    o_dict['intersectionArea'] = str(round(i_area, 8))
+                my_proportion = round(my_proportion, 8)
+                other_proportion = round(other_proportion, 8)
                 o_dict['forwardProportion'] = str(my_proportion)
                 o_dict['reverseProportion'] = str(other_proportion)
 

@@ -334,6 +334,23 @@ WHERE {
     }
     return meta, locations
 
+async def query_build_response_bindings(sparql, count, offset, bindings):
+    """
+    :param sparql:
+    :type sparql: str
+    :param count:
+    :type count: int
+    :param offset:
+    :type offset: int
+    :return:
+    """
+    resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
+    if 'results' in resp and 'bindings' in resp['results']:
+        if len(resp['results']['bindings']) > 0:
+            if len(resp['results']['bindings'][0].keys()) > 0:
+                bindings.extend(resp['results']['bindings'])
+
+
 async def get_location_overlaps(target_uri, include_areas, include_proportion, include_within, include_contains, count=1000, offset=0):
     """
     :param target_uri:
@@ -476,11 +493,9 @@ GROUP BY ?o
     sparql = overlaps_sparql.replace("<SELECTS>", use_selects)
     sparql = sparql.replace("<EXTRAS>", extras)
     sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
-    resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
     overlaps = []
-    if 'results' not in resp:
-        return {'count', 0}, overlaps
-    bindings = resp['results']['bindings']
+    bindings = []
+    await query_build_response_bindings(sparql, count, offset, bindings)
     extras = ""
     if include_contains:
         use_selects = selects
@@ -490,10 +505,7 @@ GROUP BY ?o
         sparql = contains_sparql.replace("<SELECTS>", use_selects)
         sparql = sparql.replace("<EXTRAS>", extras)
         sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
-        resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
-        if 'results' not in resp:
-            return {'count', 0}, overlaps
-        bindings.extend(resp['results']['bindings'])
+        await query_build_response_bindings(sparql, count, offset, bindings)
         extras = ""
     if include_within:
         use_selects = selects
@@ -503,10 +515,7 @@ GROUP BY ?o
         sparql = within_sparql.replace("<SELECTS>", use_selects)
         sparql = sparql.replace("<EXTRAS>", extras)
         sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
-        resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
-        if 'results' not in resp:
-            return {'count', 0}, overlaps
-        bindings.extend(resp['results']['bindings'])
+        await query_build_response_bindings(sparql, count, offset, bindings)
     if len(bindings) < 1:
         return {'count', 0}, overlaps
     if not include_proportion and not include_areas:

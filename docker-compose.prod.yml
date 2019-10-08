@@ -13,6 +13,8 @@ services:
     ports:
       - 80:80
       - 443:443
+    environment:
+      - ACME_AGREE=true
     volumes:
       - ./Caddyfile:/etc/Caddyfile
       - ./caddy:/root/.caddy

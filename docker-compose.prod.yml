@@ -20,3 +20,4 @@ services:
       - ./caddy:/root/.caddy
     links:
       - api
+    restart: always

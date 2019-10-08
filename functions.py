@@ -2,6 +2,7 @@ import asyncio
 from decimal import Decimal
 from aiohttp import ClientSession
 from config import TRIPLESTORE_CACHE_SPARQL_ENDPOINT
+from config import GEOBASE_ENDPOINT 
 from json import loads
 
 from errors import ReportableAPIError
@@ -583,3 +584,20 @@ GROUP BY ?o
     if my_area and include_areas:
         meta['featureArea'] = str(my_area)
     return meta, overlaps
+
+async def get_at_location(lat, lon, count=1000, offset=0):
+    """
+    :param lat:
+    :type lat: float 
+    :param lon:
+    :type lon: float 
+    :param count:
+    :type count: int
+    :param offset:
+    :type offset: int
+    :return:
+    """
+    conn = await asyncpg.connect('postgresql://postgres:password@{}/mydb'.format(GEOBASE_ENDPOINT))
+    row = await conn.fetchrow(
+        'select * from mb_mb where ST_Intersects(ST_Transform(ST_GeomFromText('POINT(144.797510 -36.901732)', 4326),3577), mb_mb.geom_3577))')
+    return None, None

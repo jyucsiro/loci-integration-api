@@ -200,3 +200,31 @@ class Overlaps(Resource):
             "overlaps": overlaps,
         }
         return json(response, status=200)
+
+@ns_loc_func.route('/find_at_location')
+class find_at_location(Resource):
+    """Function for location find by point"""
+
+    @ns.doc('get_location_contains', params=OrderedDict([
+        ("lat", {"latitude": "Query point latitude",
+                 "required": True, "type": "number", "format": "float"}),
+        ("lon", {"longitude": "Query point longitude",
+                   "required": False, "type": "number", "format": "float"}),
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Gets all LOCI Locations that this target LOCI URI overlaps with\n
+        Note: count and offset do not currently work properly on /overlaps """
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        lon = float(next(iter(request.args.getlist('lon', None)))) 
+        lat = float(next(iter(request.args.getlist('lat', None)))) 
+        meta, locations = await get_at_location(lat, lon, count, offset)
+        response = {
+            "meta": meta,
+            "locations": locations,
+        }
+        return json(response, status=200)

@@ -1,4 +1,5 @@
 import asyncio
+import asyncpg
 from decimal import Decimal
 from aiohttp import ClientSession
 from config import TRIPLESTORE_CACHE_SPARQL_ENDPOINT
@@ -585,7 +586,7 @@ GROUP BY ?o
         meta['featureArea'] = str(my_area)
     return meta, overlaps
 
-async def get_at_location(lat, lon, count=1000, offset=0):
+async def get_at_location(lat, lon, loci_type="mb", count=1000, offset=0):
     """
     :param lat:
     :type lat: float 
@@ -598,6 +599,18 @@ async def get_at_location(lat, lon, count=1000, offset=0):
     :return:
     """
     conn = await asyncpg.connect('postgresql://postgres:password@{}/mydb'.format(GEOBASE_ENDPOINT))
-    row = await conn.fetchrow(
-        'select * from mb_mb where ST_Intersects(ST_Transform(ST_GeomFromText('POINT(144.797510 -36.901732)', 4326),3577), mb_mb.geom_3577))')
-    return None, None
+    row = {} 
+    meta = {
+        'count': len(row),
+        'offset': offset,
+    }
+    if loci_type == 'mb': 
+        row = await conn.fetchrow(
+            'select mb_code_20 from "from" where ST_Intersects(ST_Transform(ST_GeomFromText(\'POINT({long} {lat})\', 4326),3577), "from".geom_3577) order by mb_code_20 limit {limit} offset {offset}'.format(long=lon, lat=lat, limit=count, offset=offset))
+        return meta, ["http://linked.data.gov.au/dataset/asgs2016/meshblock/{}".format(row['mb_code_20'])]
+    elif loci_type == 'cc':
+        row = await conn.fetchrow(
+            'select hydroid from "to" where ST_Intersects(ST_Transform(ST_GeomFromText(\'POINT({long} {lat})\', 4326),3577), "to".geom_3577) order by hydroid limit {limit} offset {offset}'.format(long=lon, lat=lat, limit=count, offset=offset))
+        return meta, ["http://linked.data.gov.au/dataset/geofabric/contractedcatchment/{}".format(row['hydroid'])]
+    return meta, []
+       

@@ -7,7 +7,7 @@ from sanic.exceptions import ServiceUnavailable
 from sanic_restplus import Api, Resource, fields
 
 from functions import get_linksets, get_datasets, get_locations, get_location_is_within, get_location_contains, \
-    get_resource, get_location_overlaps
+    get_resource, get_location_overlaps, get_at_location
 
 url_prefix = 'api/v1'
 
@@ -206,6 +206,8 @@ class find_at_location(Resource):
     """Function for location find by point"""
 
     @ns.doc('get_location_contains', params=OrderedDict([
+        ("loci_type", {"latitude": "Loci location type to query, can be 'mb' for meshblocks or 'cc' for contracted catchments",
+                 "required": False, "type": "string", "default":"mb"}),
         ("lat", {"latitude": "Query point latitude",
                  "required": True, "type": "number", "format": "float"}),
         ("lon", {"longitude": "Query point longitude",
@@ -222,7 +224,8 @@ class find_at_location(Resource):
         offset = int(next(iter(request.args.getlist('offset', [0]))))
         lon = float(next(iter(request.args.getlist('lon', None)))) 
         lat = float(next(iter(request.args.getlist('lat', None)))) 
-        meta, locations = await get_at_location(lat, lon, count, offset)
+        loci_type = str(next(iter(request.args.getlist('loci_type', 'mb')))) 
+        meta, locations = await get_at_location(lat, lon, loci_type, count, offset)
         response = {
             "meta": meta,
             "locations": locations,

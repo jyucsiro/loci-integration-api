@@ -586,7 +586,7 @@ GROUP BY ?o
         meta['featureArea'] = str(my_area)
     return meta, overlaps
 
-async def get_at_location(lat, lon, loci_type="mb", count=1000, offset=0):
+async def get_at_location(lat, lon, loci_type="any", count=1000, offset=0):
     """
     :param lat:
     :type lat: float 
@@ -600,17 +600,23 @@ async def get_at_location(lat, lon, loci_type="mb", count=1000, offset=0):
     """
     conn = await asyncpg.connect('postgresql://postgres:password@{}/mydb'.format(GEOBASE_ENDPOINT))
     row = {} 
-    meta = {
-        'count': len(row),
-        'offset': offset,
-    }
-    if loci_type == 'mb': 
+    results = {} 
+    counter = 0
+    if loci_type == 'mb' or loci_type == 'any': 
         row = await conn.fetchrow(
             'select mb_code_20 from "from" where ST_Intersects(ST_Transform(ST_GeomFromText(\'POINT({long} {lat})\', 4326),3577), "from".geom_3577) order by mb_code_20 limit {limit} offset {offset}'.format(long=lon, lat=lat, limit=count, offset=offset))
-        return meta, ["http://linked.data.gov.au/dataset/asgs2016/meshblock/{}".format(row['mb_code_20'])]
-    elif loci_type == 'cc':
+        if row is not None and len(row) > 0: 
+            results["mb"] = ["http://linked.data.gov.au/dataset/asgs2016/meshblock/{}".format(row['mb_code_20'])]
+            counter += len(row)
+    if loci_type == 'cc' or loci_type == 'any':
         row = await conn.fetchrow(
             'select hydroid from "to" where ST_Intersects(ST_Transform(ST_GeomFromText(\'POINT({long} {lat})\', 4326),3577), "to".geom_3577) order by hydroid limit {limit} offset {offset}'.format(long=lon, lat=lat, limit=count, offset=offset))
-        return meta, ["http://linked.data.gov.au/dataset/geofabric/contractedcatchment/{}".format(row['hydroid'])]
-    return meta, []
+        if row is not None and len(row) > 0: 
+            results["cc"] = ["http://linked.data.gov.au/dataset/geofabric/contractedcatchment/{}".format(row['hydroid'])]
+            counter += len(row)
+    meta = {
+        'count': counter,
+        'offset': offset,
+    }
+    return meta, results
        

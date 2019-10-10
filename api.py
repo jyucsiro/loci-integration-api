@@ -206,8 +206,8 @@ class find_at_location(Resource):
     """Function for location find by point"""
 
     @ns.doc('get_location_contains', params=OrderedDict([
-        ("loci_type", {"latitude": "Loci location type to query, can be 'mb' for meshblocks or 'cc' for contracted catchments",
-                 "required": False, "type": "string", "default":"mb"}),
+        ("loci_type", {"latitude": "Loci location type to query, can be 'any', 'mb' for meshblocks or 'cc' for contracted catchments",
+                 "required": False, "type": "string", "default":"any"}),
         ("lat", {"latitude": "Query point latitude",
                  "required": True, "type": "number", "format": "float"}),
         ("lon", {"longitude": "Query point longitude",

@@ -203,12 +203,12 @@ class Overlaps(Resource):
         }
         return json(response, status=200)
 
-@ns_loc_func.route('/search')
+@ns_loc_func.route('/find-by-label')
 class Search(Resource):
-    """Function for search location by label"""
+    """Function for finding a LOCI location by label"""
 
-    @ns.doc('search_location', params=OrderedDict([
-        ("query", {"description": "Search query",
+    @ns.doc('find_location_by_label', params=OrderedDict([
+        ("query", {"description": "Search query for label",
                     "required": True, "type": "string"}),
     ]), security=None)
     async def get(self, request, *args, **kwargs):

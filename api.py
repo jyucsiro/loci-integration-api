@@ -7,7 +7,7 @@ from sanic.exceptions import ServiceUnavailable
 from sanic_restplus import Api, Resource, fields
 
 from functions import get_linksets, get_datasets, get_locations, get_location_is_within, get_location_contains, \
-    get_resource, get_location_overlaps
+    get_resource, get_location_overlaps, search_location_by_label
 
 url_prefix = 'api/v1'
 
@@ -99,6 +99,8 @@ class _Resource(Resource):
         resource_uri = str(next(iter(request.args.getlist('uri'))))
         resource = await get_resource(resource_uri)
         return json(resource, status=200)
+
+
 
 
 ## The following are non-standard usage of REST/Swagger.
@@ -198,5 +200,23 @@ class Overlaps(Resource):
         response = {
             "meta": meta,
             "overlaps": overlaps,
+        }
+        return json(response, status=200)
+
+@ns_loc_func.route('/search')
+class Search(Resource):
+    """Function for search location by label"""
+
+    @ns.doc('search_location', params=OrderedDict([
+        ("query", {"description": "Search query",
+                    "required": True, "type": "string"}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Calls search engine to query LOCI Locations by label"""
+        query = str(next(iter(request.args.getlist('query'))))
+        meta, locations = await search_location_by_label(query)
+        response = {
+            "meta": meta,
+            "locations": locations,
         }
         return json(response, status=200)

@@ -617,6 +617,17 @@ query_es_endpoint.session_cache = {}
 
 
 async def search_location_by_label(query):
+    """
+    Query ElasticSearch endpoint and search by label of LOCI locations. 
+    The query to ES is in the format of http://localhost:9200/_search?q=NSW
+
+    Returns response back from ES as-is.
+
+    :param query: query string for text matching on label of LOCI locations
+    :type query: str
+    :return:
+    :rtype: dict
+    """
     resp = await query_es_endpoint(query)
     resp_object = {}
     if 'hits' not in resp:

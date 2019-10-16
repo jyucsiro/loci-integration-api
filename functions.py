@@ -2,6 +2,7 @@ import asyncio
 from decimal import Decimal
 from aiohttp import ClientSession
 from config import TRIPLESTORE_CACHE_SPARQL_ENDPOINT
+from config import ES_ENDPOINT
 from json import loads
 
 from errors import ReportableAPIError
@@ -583,3 +584,54 @@ GROUP BY ?o
     if my_area and include_areas:
         meta['featureArea'] = str(my_area)
     return meta, overlaps
+
+
+async def query_es_endpoint(query, limit=10, offset=0):
+    """
+    Pass the ES query to the endpoint. The endpoint is specified in the config file.
+
+    :param query: the query text
+    :type query: str
+    :param limit:
+    :type limit: int
+    :param offset:
+    :type offset: int
+    :return:
+    :rtype: dict
+    """
+    loop = asyncio.get_event_loop()
+    try:
+        session = query_es_endpoint.session_cache[loop]
+    except KeyError:
+        session = ClientSession(loop=loop)
+        query_es_endpoint.session_cache[loop] = session
+    args = {
+        'q': query
+#        'limit': int(limit),
+#        'offset': int(offset),
+    }
+    resp = await session.request('GET', ES_ENDPOINT, params=args)
+    resp_content = await resp.text()
+    return loads(resp_content)
+query_es_endpoint.session_cache = {}
+
+
+async def search_location_by_label(query):
+    """
+    Query ElasticSearch endpoint and search by label of LOCI locations. 
+    The query to ES is in the format of http://localhost:9200/_search?q=NSW
+
+    Returns response back from ES as-is.
+
+    :param query: query string for text matching on label of LOCI locations
+    :type query: str
+    :return:
+    :rtype: dict
+    """
+    resp = await query_es_endpoint(query)
+    resp_object = {}
+    if 'hits' not in resp:
+        return resp_object
+    resp_object = resp
+    return resp_object   
+    

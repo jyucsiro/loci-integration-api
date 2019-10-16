@@ -7,7 +7,7 @@ services:
       - cluster.name=docker-cluster
       - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - "http.cors.allow-origin=http://localhost:3001"
+      - "http.cors.allow-origin=*"
       - "http.cors.enabled=true"
       - "http.cors.allow-headers=X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization"
       - "http.cors.allow-credentials=true"
@@ -19,8 +19,8 @@ services:
       - esdata1:/usr/share/elasticsearch/data
     ports:
       - 9200:9200
-    networks:
-      - esnet
+#    networks:
+#      - esnet
 #  kibana:
 #    image: docker.elastic.co/kibana/kibana:6.3.1
 #    ports:
@@ -28,12 +28,12 @@ services:
 #    environment:
 #      - "SERVER_NAME=localhost"
 #      - xpack.security.enabled=false
-    networks:
-      - esnet
+  #  networks:
+  #    - esnet
 
 volumes:
   esdata1:
    driver: local
 
-networks:
-  esnet:
+#networks:
+#  default:

@@ -214,9 +214,6 @@ class Search(Resource):
     async def get(self, request, *args, **kwargs):
         """Calls search engine to query LOCI Locations by label"""
         query = str(next(iter(request.args.getlist('query'))))
-        meta, locations = await search_location_by_label(query)
-        response = {
-            "meta": meta,
-            "locations": locations,
-        }
+        result = await search_location_by_label(query)
+        response = result
         return json(response, status=200)

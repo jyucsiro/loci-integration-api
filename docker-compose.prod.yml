@@ -1,0 +1,23 @@
+version: '3.7'
+
+services:
+  api:
+    build: 
+      context: .
+      target: base
+    ports: 
+      - 8080
+    restart: always
+  caddy:
+    image: abiosoft/caddy
+    ports:
+      - 80:80
+      - 443:443
+    environment:
+      - ACME_AGREE=true
+    volumes:
+      - ./Caddyfile:/etc/Caddyfile
+      - ./caddy:/root/.caddy
+    links:
+      - api
+    restart: always

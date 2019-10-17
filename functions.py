@@ -1,8 +1,11 @@
 import asyncio
+import asyncpg
 from decimal import Decimal
 from aiohttp import ClientSession
 from config import TRIPLESTORE_CACHE_SPARQL_ENDPOINT
+from config import GEOBASE_ENDPOINT 
 from config import ES_ENDPOINT
+
 from json import loads
 
 from errors import ReportableAPIError
@@ -585,7 +588,40 @@ GROUP BY ?o
         meta['featureArea'] = str(my_area)
     return meta, overlaps
 
-
+async def get_at_location(lat, lon, loci_type="any", count=1000, offset=0):
+    """
+    :param lat:
+    :type lat: float 
+    :param lon:
+    :type lon: float 
+    :param count:
+    :type count: int
+    :param offset:
+    :type offset: int
+    :return:
+    """
+    conn = await asyncpg.connect('postgresql://postgres:password@{}/mydb'.format(GEOBASE_ENDPOINT))
+    row = {} 
+    results = {} 
+    counter = 0
+    if loci_type == 'mb' or loci_type == 'any': 
+        row = await conn.fetchrow(
+            'select mb_code_20 from "from" where ST_Intersects(ST_Transform(ST_GeomFromText(\'POINT({long} {lat})\', 4326),3577), "from".geom_3577) order by mb_code_20 limit {limit} offset {offset}'.format(long=lon, lat=lat, limit=count, offset=offset))
+        if row is not None and len(row) > 0: 
+            results["mb"] = ["http://linked.data.gov.au/dataset/asgs2016/meshblock/{}".format(row['mb_code_20'])]
+            counter += len(row)
+    if loci_type == 'cc' or loci_type == 'any':
+        row = await conn.fetchrow(
+            'select hydroid from "to" where ST_Intersects(ST_Transform(ST_GeomFromText(\'POINT({long} {lat})\', 4326),3577), "to".geom_3577) order by hydroid limit {limit} offset {offset}'.format(long=lon, lat=lat, limit=count, offset=offset))
+        if row is not None and len(row) > 0: 
+            results["cc"] = ["http://linked.data.gov.au/dataset/geofabric/contractedcatchment/{}".format(row['hydroid'])]
+            counter += len(row)
+    meta = {
+        'count': counter,
+        'offset': offset,
+    }
+    return meta, results
+       
 async def query_es_endpoint(query, limit=10, offset=0):
     """
     Pass the ES query to the endpoint. The endpoint is specified in the config file.
@@ -634,4 +670,4 @@ async def search_location_by_label(query):
         return resp_object
     resp_object = resp
     return resp_object   
-    
+

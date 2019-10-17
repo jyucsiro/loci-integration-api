@@ -14,6 +14,10 @@ docker-compose is included for an containerized local deployment
 
 run `docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build` to build in dev model and run a container for running tests or development
 
+if running the label search engine, run
+`docker-compose -f docker-compose.yml -f docker-compose.dev.yml -f search/docker-compose.yml up --build` 
+
+
 ## License
 The license of this document is TBD
 

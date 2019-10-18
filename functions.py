@@ -600,6 +600,7 @@ async def query_es_endpoint(query, limit=10, offset=0):
     :rtype: dict
     """
     loop = asyncio.get_event_loop()
+    http_ok = [200]
     try:
         session = query_es_endpoint.session_cache[loop]
     except KeyError:
@@ -612,7 +613,14 @@ async def query_es_endpoint(query, limit=10, offset=0):
     }
     resp = await session.request('GET', ES_ENDPOINT, params=args)
     resp_content = await resp.text()
-    return loads(resp_content)
+    if resp.status not in http_ok:
+       return {
+           'ok': False,
+           'errorMessage': "Could not connect to the label search engine. Error code {}".format(resp.status)
+           }
+    formatted_resp = loads(resp_content)
+    formatted_resp['ok'] = True
+    return loads(formatted_resp)
 query_es_endpoint.session_cache = {}
 
 

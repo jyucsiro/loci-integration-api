@@ -4,7 +4,7 @@ services:
   api:
     volumes:
       - .:/usr/src/app
-    ports:
-      - 8080
     environment:
       - PYTHONDONTWRITEBYTECODE=1
+      - GEOBASE_HOST
+      - GEOBASE_URL

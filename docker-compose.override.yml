@@ -5,3 +5,5 @@ services:
     build: 
       context: . 
       target: base 
+    ports:
+      - 8080

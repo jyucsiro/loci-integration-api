@@ -2,6 +2,7 @@ import asyncio
 import asyncpg
 from decimal import Decimal
 from aiohttp import ClientSession
+from aiohttp.client_exceptions import ClientConnectorError
 from config import TRIPLESTORE_CACHE_SPARQL_ENDPOINT
 from config import GEOBASE_ENDPOINT 
 from config import ES_ENDPOINT
@@ -636,6 +637,7 @@ async def query_es_endpoint(query, limit=10, offset=0):
     :rtype: dict
     """
     loop = asyncio.get_event_loop()
+    http_ok = [200]
     try:
         session = query_es_endpoint.session_cache[loop]
     except KeyError:
@@ -646,9 +648,23 @@ async def query_es_endpoint(query, limit=10, offset=0):
 #        'limit': int(limit),
 #        'offset': int(offset),
     }
-    resp = await session.request('GET', ES_ENDPOINT, params=args)
-    resp_content = await resp.text()
-    return loads(resp_content)
+    
+    formatted_resp = {
+        'ok': False
+    }
+    try:
+        resp = await session.request('GET', ES_ENDPOINT, params=args)
+        resp_content = await resp.text()
+        if resp.status not in http_ok:
+            formatted_resp['errorMessage'] = "Could not connect to the label search engine. Error code {}".format(resp.status)
+            return formatted_resp
+        formatted_resp = loads(resp_content)
+        formatted_resp['ok'] = True
+        return formatted_resp
+    except ClientConnectorError:
+        formatted_resp['errorMessage'] = "Could not connect to the label search engine. Connection error thrown."
+        return formatted_resp       
+    return formatted_resp
 query_es_endpoint.session_cache = {}
 
 
@@ -665,9 +681,14 @@ async def search_location_by_label(query):
     :rtype: dict
     """
     resp = await query_es_endpoint(query)
+    
+    if ('ok' in resp and resp['ok'] == False):
+        return resp
+    
     resp_object = {}
-    if 'hits' not in resp:
+    if 'hits' not in resp:        
         return resp_object
+    
     resp_object = resp
     return resp_object   
 

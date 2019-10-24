@@ -611,13 +611,13 @@ async def get_at_location(lat, lon, loci_type="any", count=1000, offset=0):
     try:
         if loci_type == 'mb' or loci_type == 'any': 
             row = await conn.fetchrow(
-                'select mb_code_20 from "from" where ST_Intersects(ST_Transform(ST_GeomFromText(\'POINT($1 $2)\', 4326),3577), "from".geom_3577) order by mb_code_20 limit $3 offset $4', lon, lat, count, offset)
+                    'select mb_code_20 from "from" where ST_Intersects(ST_Transform(ST_GeomFromText(\'POINT(\' || $1 || \' \' || $2 || \')\', 4326),3577), "from".geom_3577) order by mb_code_20 limit $3 offset $4', str(lon), str(lat), count, offset)
             if row is not None and len(row) > 0: 
                 results["mb"] = ["http://linked.data.gov.au/dataset/asgs2016/meshblock/{}".format(row['mb_code_20'])]
                 counter += len(row)
         if loci_type == 'cc' or loci_type == 'any':
             row = await conn.fetchrow(
-                'select hydroid from "to" where ST_Intersects(ST_Transform(ST_GeomFromText(\'POINT($1 $2)\', 4326),3577), "to".geom_3577) order by hydroid limit $3 offset $4', lon, lat, count, offset)
+                    'select hydroid from "to" where ST_Intersects(ST_Transform(ST_GeomFromText(\'POINT(\' || $1 || \' \' || $2 || \')\', 4326),3577), "to".geom_3577) order by hydroid limit $3 offset $4', str(lon), str(lat), count, offset)
             if row is not None and len(row) > 0: 
                 results["cc"] = ["http://linked.data.gov.au/dataset/geofabric/contractedcatchment/{}".format(row['hydroid'])]
                 counter += len(row)

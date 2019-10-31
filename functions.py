@@ -603,7 +603,7 @@ async def get_at_location(lat, lon, loci_type="any", count=1000, offset=0):
     :return:
     """
     if get_at_location.pool is None:
-        get_at_location.pool = await asyncpg.create_pool('postgresql://postgres:password@{}/mydb'.format(GEOBASE_ENDPOINT), command_timeout=60, min_size=1, max_size=2)
+        get_at_location.pool = await asyncpg.create_pool('postgresql://postgres:password@{}:5437/mydb'.format(GEOBASE_ENDPOINT), command_timeout=60, min_size=1, max_size=2)
     conn = await get_at_location.pool.acquire() 
     row = {} 
     results = {} 

@@ -457,8 +457,12 @@ async def get_location_overlaps_crosswalk_base_uri(parent_amount, proportion_ori
             continue
         if not base_unit_prefix in other_base_uri:
             continue
+        other_feature_area = an_overlap["featureArea"]
         # found an overlapping base unit
         amount_within_from_base_uri = an_overlap["reverseProportion"]
+        if not other_base_uri in parent_amount.keys(): 
+            parent_amount[other_base_uri] = { "uri" : other_base_uri, "featureArea" : other_feature_area, "reverseProportion" : 0 } 
+        parent_amount[other_base_uri]["reverseProportion"] += (float(amount_within_from_base_uri) / 100 * float(proportion_original_uri))
         # find all its parents
         my_area, all_within = await get_all_overlaps(other_base_uri, include_contains=False, include_within=True)
         for an_within in all_within:

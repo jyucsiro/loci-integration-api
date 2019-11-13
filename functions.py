@@ -11,6 +11,42 @@ from json import loads
 
 from errors import ReportableAPIError
 
+#Until we have a better way of understanding fundamental units in spatial hierarchies
+prefix_base_unit_lookup = {
+"linked.data.gov.au/dataset/asgs2016" : "linked.data.gov.au/dataset/asgs2016/meshblock",
+"linked.data.gov.au/dataset/geofabric" : "linked.data.gov.au/dataset/geofabric/contractedcatchment"
+}
+
+async def get_other_base_unit_and_type_prefix(from_uri, query_uri):
+    '''
+    Find the base_unit and type prefix of a uri that is not of the from_uri type
+    and is of the query_uri type
+    '''
+    base_unit_prefix = None
+    resource_type_prefix = None
+    for key, value in prefix_base_unit_lookup.items():
+        if not key in from_uri:
+            if key in query_uri:
+                base_unit_prefix = value 
+                resource_type_prefix = key 
+                return base_unit_prefix, resource_type_prefix
+    return base_unit_prefix, resource_type_prefix
+
+async def get_all_overlaps(target_uri, include_contains=True, include_within=True):
+    offset = 0
+    all_overlaps = []
+    while True:
+        print(target_uri)
+        print(offset)
+        results = list(await get_location_overlaps(target_uri, True, True, include_within, include_contains, count=100000, offset=offset))
+        print(results[0])
+        length = results[0]['count']
+        my_area = results[0]['featureArea'] 
+        all_overlaps = all_overlaps + results[1]
+        if length < 100000:
+            break
+        offset += 100000
+    return my_area, all_overlaps
 
 async def query_graphdb_endpoint(sparql, infer=True, same_as=True, limit=1000, offset=0):
     """
@@ -154,6 +190,7 @@ WHERE {
     }
 }
 """
+    print(sparql)
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
     linksets = []
     if 'results' not in resp:
@@ -165,6 +202,7 @@ WHERE {
         'count': len(linksets),
         'offset': offset,
     }
+    print(meta)
     return meta, linksets
 
 async def get_datasets(count=1000, offset=0):
@@ -355,6 +393,85 @@ async def query_build_response_bindings(sparql, count, offset, bindings):
             if len(resp['results']['bindings'][0].keys()) > 0:
                 bindings.extend(resp['results']['bindings'])
 
+async def get_location_overlaps_crosswalk(from_uri, include_areas, include_proportion, include_within, include_contains, include_count=1000, offset=0):
+    """
+    :param target_uri:
+    :type target_uri: str
+    :type include_areas: bool
+    :type include_proportion: bool
+    :type include_within: bool
+    :type include_contains: bool
+    :param count:
+    :type count: int
+    :param offset:
+    :type offset: int
+    :return:
+    """
+    # page through all the contained objects 
+    # for each response to end await get_location_overlap and gather until all got
+    # iterate over all responses
+    # if a "base unit" note the unit and the proportion of parent i.e target_uri made up by this unit 
+    # find things that overlap with this foundational unit that are other foundational units
+    # multiply the proportion of overlap of the overlapping unit by the proportion of the parent store this figure as the "passover distribution amount" 
+    # find the proportion the new foundational unit makes up of various parent units and multiple this by the "passover distribution" and store
+    # collate and sum all results for target units
+
+    base_unit_prefix, resource_type_prefix = await get_other_base_unit_and_type_prefix("", from_uri)
+    # this is a base unit so continue to base unit logic
+    parent_amount = {}
+    if not base_unit_prefix in from_uri:
+        #This must be a higher level unit so get everything contained
+        my_area, all_contained = await get_all_overlaps(from_uri, include_contains=True, include_within=False)
+        collated_uri_dict = {} 
+        for an_contained in all_contained:
+            from_base_uri = an_contained['uri'] 
+            if base_unit_prefix is None:
+                continue
+            if not base_unit_prefix in from_base_uri:
+                continue
+            amount_within_from_uri = an_contained["reverseProportion"]
+            # found a base uri do base uri logic 
+            await get_location_overlaps_crosswalk_base_uri(parent_amount, amount_within_from_uri, from_base_uri)
+    else:
+        my_area = await get_location_overlaps_crosswalk_base_uri(parent_amount, 1, from_uri)
+    # have a bunch of parents and lots of records abount how much of the fractions of base units that belong to the original unit
+    # belong to them, need to sum up all those per parent and build results list 
+
+    parents = parent_amount.values()
+    for aparent in parents:
+        aparent["reverseProportion"]  = str(aparent["reverseProportion"] ) 
+    meta = {
+        'count': len(parents),
+        'offset': 0,
+    }
+    if my_area and include_areas:
+        meta['featureArea'] = my_area
+    return meta, list(parents)
+
+async def get_location_overlaps_crosswalk_base_uri(parent_amount, proportion_original_uri, from_base_uri):
+    my_area, all_overlaps = await get_all_overlaps(from_base_uri, include_contains=True, include_within=True)
+    for an_overlap in all_overlaps:
+        other_base_uri = an_overlap["uri"]
+        base_unit_prefix, resource_type_prefix = await get_other_base_unit_and_type_prefix(from_base_uri, other_base_uri)
+        if base_unit_prefix is None:
+            continue
+        if not base_unit_prefix in other_base_uri:
+            continue
+        # found an overlapping base unit
+        amount_within_from_base_uri = an_overlap["reverseProportion"]
+        # find all its parents
+        my_area, all_within = await get_all_overlaps(other_base_uri, include_contains=False, include_within=True)
+        for an_within in all_within:
+            within_uri = an_within["uri"]
+            feature_area = an_within["featureArea"]
+            if not resource_type_prefix in within_uri:
+                continue
+            # this is a parent of the other_base_unit
+            if not within_uri in parent_amount.keys(): 
+                parent_amount[within_uri] = { "uri" : within_uri, "featureArea" : feature_area, "reverseProportion" : 0  } 
+            parent_amount[within_uri]["reverseProportion"] += (float(amount_within_from_base_uri) / 100 * float(proportion_original_uri))
+    return my_area 
+
 
 async def get_location_overlaps(target_uri, include_areas, include_proportion, include_within, include_contains, count=1000, offset=0):
     """
@@ -522,7 +639,7 @@ GROUP BY ?o
         sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
         await query_build_response_bindings(sparql, count, offset, bindings)
     if len(bindings) < 1:
-        return {'count', 0}, overlaps
+        return {'count': 0, 'offset': offset}, overlaps
     if not include_proportion and not include_areas:
         my_area = False
         for b in bindings:

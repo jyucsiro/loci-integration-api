@@ -36,7 +36,7 @@ def create_app():
     |_____\___/ \____|___| |___|_| \_| |_| |_____\____|_| \_/_/   \_|_| \___/|_| \_\ /_/   \_|_|  |___|
     """
     app.config.SWAGGER_UI_DOC_EXPANSION = 'list'
-
+    app.config.KEEP_ALIVE_TIMEOUT = '120'
     # Register/Activate Sanic-CORS plugin with allow all origins
     _ = spf.register_plugin(cors, origins=r".*", automatic_options=True)
 

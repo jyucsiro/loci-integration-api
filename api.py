@@ -6,7 +6,7 @@ from sanic.request import Request
 from sanic.exceptions import ServiceUnavailable
 from sanic_restplus import Api, Resource, fields
 
-from functions import get_linksets, get_datasets, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps, get_at_location, search_location_by_label
+from functions import get_linksets, get_datasets, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label
 
 
 url_prefix = 'api/v1'
@@ -176,6 +176,8 @@ class Overlaps(Resource):
                         "required": False, "type": "boolean", "default": False}),
         ("within", {"description": "Include features this location is wholly within",
                     "required": False, "type": "boolean", "default": False}),
+        ("crosswalk", {"description": "When overlaps are found to a resource also find overlaps to any object that contains that resource",
+                    "required": False, "type": "boolean", "default": False}),
         ("count", {"description": "Number of locations to return.",
                    "required": False, "type": "number", "format": "integer", "default": 1000}),
         ("offset", {"description": "Skip number of locations before returning count.",
@@ -191,12 +193,20 @@ class Overlaps(Resource):
         include_proportion = str(next(iter(request.args.getlist('proportion', ['false']))))
         include_contains = str(next(iter(request.args.getlist('contains', ['false']))))
         include_within = str(next(iter(request.args.getlist('within', ['false']))))
+        crosswalk = str(next(iter(request.args.getlist('crosswalk', ['false']))))
         include_areas = include_areas[0] in TRUTHS
         include_proportion = include_proportion[0] in TRUTHS
         include_contains = include_contains[0] in TRUTHS
         include_within = include_within[0] in TRUTHS
-        meta, overlaps = await get_location_overlaps(target_uri, include_areas, include_proportion, include_within,
-                                                     include_contains, count, offset)
+        crosswalk = crosswalk[0] in TRUTHS
+        if crosswalk:
+            include_within = False
+            meta, overlaps = await get_location_overlaps_crosswalk(target_uri, include_areas, include_proportion, include_within,
+                                                        include_contains, count, offset)
+        else:
+            meta, overlaps = await get_location_overlaps(target_uri, include_areas, include_proportion, include_within,
+                                                        include_contains, count, offset)
+
         response = {
             "meta": meta,
             "overlaps": overlaps,

@@ -176,7 +176,7 @@ class Overlaps(Resource):
                         "required": False, "type": "boolean", "default": False}),
         ("within", {"description": "Include features this location is wholly within",
                     "required": False, "type": "boolean", "default": False}),
-        ("crosswalk", {"description": "When overlaps are found to a resource also find overlaps to any object that contains that resource",
+        ("crosswalk", {"description": "Find overlaps event across different spatial hierarchies, other parameters are ignored, proportion, areas, contained, within are all True and paging is not currently implemented",
                     "required": False, "type": "boolean", "default": False}),
         ("count", {"description": "Number of locations to return.",
                    "required": False, "type": "number", "format": "integer", "default": 1000}),

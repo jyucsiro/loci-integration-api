@@ -36,10 +36,7 @@ async def get_all_overlaps(target_uri, include_contains=True, include_within=Tru
     offset = 0
     all_overlaps = []
     while True:
-        print(target_uri)
-        print(offset)
         results = list(await get_location_overlaps(target_uri, True, True, include_within, include_contains, count=100000, offset=offset))
-        print(results[0])
         length = results[0]['count']
         my_area = results[0]['featureArea'] 
         all_overlaps = all_overlaps + results[1]
@@ -395,6 +392,7 @@ async def query_build_response_bindings(sparql, count, offset, bindings):
 
 async def get_location_overlaps_crosswalk(from_uri, include_areas, include_proportion, include_within, include_contains, include_count=1000, offset=0):
     """
+    find location overlaps across spatial hierarchies
     :param target_uri:
     :type target_uri: str
     :type include_areas: bool
@@ -410,15 +408,18 @@ async def get_location_overlaps_crosswalk(from_uri, include_areas, include_propo
     # for a from_uri
     # get all contained objects
     # iterate over all responses
-    # if a "base unit" e.g a meshblock or a contracted catchment not how much of the from_uri is part of this base unit i.e "forwardProportion" 
+    # if a "base unit" e.g a meshblock or a contracted catchment note how much of the from_uri is part of this base unit 
     # find things that overlap with this base unit that are other base units e.g if this is a meshblock find contracted catchments
-    # multiply the forwardProportion of overlap by the forwardProportion of the parent and use this to distribute to parents  
-    # find the new base units various parent units and add the forward distribution to them 
+    # get the amount of intersection with original from_uri by multiplying it by the reverseProportion (i.e amount base units intersect)  
+    # find the new base units various parent units and add the forward areas to
     # collate and sum all results for target units
+    # calcuate final foward and reverse proportions by finding the proportions of passed over area that is in the target block (reverseProportion)
+    # and the proportion of final passed over area as as a proportion of the orignal area (fowardProportion) 
     base_unit_prefix, resource_type_prefix = await get_to_base_unit_and_type_prefix("", from_uri)
     # this is a base unit so continue to base unit logic
     parent_amount = {}
-    # cache of withins
+    # cache of withins, base units in other hierarchary may overlap multiple times so don't need to find parents everytime
+    # just use cache of parents 
     found_parents = {}
     if not base_unit_prefix in from_uri:
         #This must be a parent unit so get everything contained and find base units
@@ -429,27 +430,33 @@ async def get_location_overlaps_crosswalk(from_uri, include_areas, include_propo
             if base_unit_prefix is None:
                 continue
             if not base_unit_prefix in from_base_uri:
-                continue
+                # isn't actually a base uri but record information 
+                parent_amount[from_base_uri] = { "uri" : from_base_uri, "featureArea": my_area, "forwardProportion" : an_contained["forwardProportion"], "reverseProportion": an_contained["reverseProportion"], "intersectionArea" : an_contained["intersectionArea"]} 
             # found a base uri do base uri logic 
             percentage_from_uri_in_from_base_uri = float(an_contained["forwardProportion"]) # This is the amount this base unit takes up of the parent unit
             area_parent = float(my_area) * percentage_from_uri_in_from_base_uri / 100 
             await get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount, area_parent, percentage_from_uri_in_from_base_uri, from_base_uri)
     else:
-        my_area = await get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount, area_parent, 100, from_uri)
+        my_area = await get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount, None, 100, from_uri)
 
     parents = parent_amount.values()
     for aparent in parents:
         area_from_uri = float(my_area)
         area_parent = float(aparent["featureArea"])
-        area_from_uri_in_parent = aparent["area_incoming"]
-        proportion_area_of_parent = area_from_uri_in_parent / area_parent
-        proportion_area_of_from_uri = area_from_uri_in_parent / area_from_uri 
-        if proportion_area_of_from_uri >= 1:
-            proportion_area_of_from_uri = 1
-        if proportion_area_of_parent >= 1:
-            proportion_area_of_parent = 1
-        aparent["reverseProportion"] = proportion_area_of_parent * 100 
-        aparent["forwardProportion"] = proportion_area_of_from_uri * 100 
+        area_from_uri_in_parent = aparent["intersectionArea"]
+        if not "forwardProportion" in aparent.keys():
+            proportion_area_of_from_uri = area_from_uri_in_parent / area_from_uri 
+            if proportion_area_of_from_uri >= 1:
+                proportion_area_of_from_uri = 1
+            aparent["forwardProportion"] = str(proportion_area_of_from_uri * 100)
+        
+        if not "reverseProportion" in aparent.keys():
+            proportion_area_of_parent = area_from_uri_in_parent / area_parent
+            if proportion_area_of_parent >= 1:
+                proportion_area_of_parent = 1
+            aparent["reverseProportion"] = str(proportion_area_of_parent * 100)
+        aparent["intersectionArea"] = str(aparent["intersectionArea"])
+
     meta = {
         'count': len(parents),
         'offset': 0,
@@ -459,7 +466,14 @@ async def get_location_overlaps_crosswalk(from_uri, include_areas, include_propo
     return meta, list(parents)
 
 async def get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount, area_incoming, percentage_from_uri_in_from_base_uri, from_base_uri):
+    """
+    find location overlaps across to "to" spatial hierarchies given a base uri in a "from" hierarchy
+    """
     my_area, all_overlaps = await get_all_overlaps(from_base_uri, include_contains=True, include_within=True)
+    # if there is no area incoming from another higher level object then this is the U shaped query is a L shaped and starts 
+    # from a base_uri therefore the area is the area of the base_uri
+    if area_incoming is None:
+        area_incoming = float(my_area)
     for an_overlap in all_overlaps:
         to_base_uri = an_overlap["uri"]
         base_unit_prefix, resource_type_prefix = await get_to_base_unit_and_type_prefix(from_base_uri, to_base_uri)
@@ -470,28 +484,28 @@ async def get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount,
         to_feature_area = an_overlap["featureArea"]
         # found an overlapping base unit
         if not to_base_uri in parent_amount.keys(): 
-            parent_amount[to_base_uri] = { "uri" : to_base_uri, "area_incoming" : 0, "featureArea" : to_feature_area, "forwardProportion" : 0 } 
+            parent_amount[to_base_uri] = { "uri" : to_base_uri, "intersectionArea" : 0, "featureArea" : to_feature_area, "forwardProportion" : 0 } 
         percentage_from_base_uri_in_to_base_uri = an_overlap["forwardProportion"]
         area_from_other_base_uri = (float(percentage_from_base_uri_in_to_base_uri) / 100 * area_incoming) 
-        parent_amount[to_base_uri]["area_incoming"] += area_from_other_base_uri 
+        parent_amount[to_base_uri]["intersectionArea"] += area_from_other_base_uri 
+        parent_amount[to_base_uri]["forwardProportion"] = percentage_from_base_uri_in_to_base_uri
+        parent_amount[to_base_uri]["reverseProportion"] = an_overlap["reverseProportion"] 
         # find all its parents
         if not to_base_uri in found_parents.keys():
             found_parents[to_base_uri] = await get_all_overlaps(to_base_uri, include_contains=False, include_within=True)
-        my_area, all_within = found_parents[to_base_uri]
+        parent_area, all_within = found_parents[to_base_uri]
         for an_within in all_within:
             within_uri = an_within["uri"]
             if not resource_type_prefix in within_uri:
                continue
             feature_area = an_within["featureArea"]
-            # how much of this bigger thing is in the smaller thing
-            reverse_percentage = an_within["reverseProportion"]
             # how much of this bigger thing is in the thing in the to hierarchy
             if not resource_type_prefix in within_uri:
                 continue
             # this is a parent of the to_base_unit
             if not within_uri in parent_amount.keys(): 
-                parent_amount[within_uri] = { "uri" : within_uri, "area_incoming": 0, "featureArea" : feature_area, "forwardProportion" : 0, "reverseProportion": 0} 
-            parent_amount[within_uri]["area_incoming"] += area_from_other_base_uri 
+                parent_amount[within_uri] = { "uri" : within_uri, "intersectionArea": 0, "featureArea" : feature_area} 
+            parent_amount[within_uri]["intersectionArea"] += area_from_other_base_uri 
     return my_area 
 
 

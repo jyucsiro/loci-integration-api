@@ -176,7 +176,9 @@ class Overlaps(Resource):
                         "required": False, "type": "boolean", "default": False}),
         ("within", {"description": "Include features this location is wholly within",
                     "required": False, "type": "boolean", "default": False}),
-        ("crosswalk", {"description": "Find overlaps event across different spatial hierarchies, other parameters are ignored, proportion, areas, contained, within are all True and paging is not currently implemented",
+        ("output_type", {"description": "Restrict output uris to specified fully qualified uri",
+                    "required": False, "type": "string", "default": ''}),
+        ("crosswalk", {"description": "Find overlaps event across different spatial hierarchies, some other parameters are ignored: contained, within are all set to true and paging is not currently implemented",
                     "required": False, "type": "boolean", "default": False}),
         ("count", {"description": "Number of locations to return.",
                    "required": False, "type": "number", "format": "integer", "default": 1000}),
@@ -189,6 +191,10 @@ class Overlaps(Resource):
         count = int(next(iter(request.args.getlist('count', [1000]))))
         offset = int(next(iter(request.args.getlist('offset', [0]))))
         target_uri = str(next(iter(request.args.getlist('uri'))))
+        if 'output_featuretype_uri'  in request.args:
+            output_featuretype_uri = str(next(iter(request.args.getlist('output_featuretype_uri'))))
+        else:
+            output_featuretype_uri = None
         include_areas = str(next(iter(request.args.getlist('areas', ['false']))))
         include_proportion = str(next(iter(request.args.getlist('proportion', ['false']))))
         include_contains = str(next(iter(request.args.getlist('contains', ['false']))))
@@ -201,10 +207,10 @@ class Overlaps(Resource):
         crosswalk = crosswalk[0] in TRUTHS
         if crosswalk:
             include_within = False
-            meta, overlaps = await get_location_overlaps_crosswalk(target_uri, include_areas, include_proportion, include_within,
+            meta, overlaps = await get_location_overlaps_crosswalk(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within,
                                                         include_contains, count, offset)
         else:
-            meta, overlaps = await get_location_overlaps(target_uri, include_areas, include_proportion, include_within,
+            meta, overlaps = await get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within,
                                                         include_contains, count, offset)
 
         response = {

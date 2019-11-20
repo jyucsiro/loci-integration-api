@@ -1,5 +1,6 @@
 import asyncio
 import asyncpg
+import math
 from decimal import Decimal
 from aiohttp import ClientSession
 from aiohttp.client_exceptions import ClientConnectorError
@@ -14,7 +15,8 @@ from errors import ReportableAPIError
 #Until we have a better way of understanding fundamental units in spatial hierarchies
 prefix_base_unit_lookup = {
 "linked.data.gov.au/dataset/asgs2016" : "linked.data.gov.au/dataset/asgs2016/meshblock",
-"linked.data.gov.au/dataset/geofabric" : "linked.data.gov.au/dataset/geofabric/contractedcatchment"
+"linked.data.gov.au/dataset/geofabric" : "linked.data.gov.au/dataset/geofabric/contractedcatchment",
+"linked.data.gov.au/dataset/gnaf-2016-05" : "linked.data.gov.au/dataset/gnaf-2016-05/address"
 }
 
 
@@ -33,11 +35,11 @@ async def get_to_base_unit_and_type_prefix(from_uri, query_uri):
                 return base_unit_prefix , resource_type_prefix
     return base_unit_prefix, resource_type_prefix 
 
-async def get_all_overlaps(target_uri, output_featuretype_uri, include_contains=True, include_within=True):
+async def get_all_overlaps(target_uri, output_featuretype_uri, include_areas=True, include_proportion=True, include_contains=True, include_within=True):
     offset = 0
     all_overlaps = []
     while True:
-        results = list(await get_location_overlaps(target_uri, output_featuretype_uri, True, True, include_within, include_contains, count=100000, offset=offset))
+        results = list(await get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within, include_contains, count=100000, offset=offset))
         length = results[0]['count']
         if "featureArea" in results[0].keys():
             my_area = results[0]['featureArea'] 
@@ -501,6 +503,10 @@ async def get_location_overlaps_crosswalk(from_uri, output_featuretype_uri, incl
         else:
             aparent.pop("intersectionArea", None)
             aparent.pop("featureArea", None)
+        for key in aparent:
+            value = aparent[key] 
+            if isinstance(value, float) and math.isnan(value):
+                aparent[key] = "nan"
     meta = {
         'count': len(final_parents),
         'offset': 0,
@@ -526,18 +532,33 @@ async def get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount,
         if not base_unit_prefix in to_base_uri:
             continue
         # found a real overlapping base unit
-        to_feature_area = an_overlap["featureArea"]
+        if "featureArea" in an_overlap.keys():
+            to_feature_area = an_overlap["featureArea"]
+        else:
+            to_feature_area = float('nan') 
         if not to_base_uri in parent_amount.keys(): 
             parent_amount[to_base_uri] = { "uri" : to_base_uri, "intersectionArea" : 0, "featureArea" : to_feature_area} 
-        percentage_from_base_uri_in_to_base_uri = an_overlap["forwardPercentage"]
+
+        if "forwardPercentage" in an_overlap.keys():
+            percentage_from_base_uri_in_to_base_uri = an_overlap["forwardPercentage"]
+        else:
+            percentage_from_base_uri_in_to_base_uri = float('nan') 
         area_from_other_base_uri = (float(percentage_from_base_uri_in_to_base_uri) / 100 * area_incoming) 
         parent_amount[to_base_uri]["intersectionArea"] += area_from_other_base_uri 
         # find all its parents
         if not to_base_uri in found_parents.keys():
-            found_parents[to_base_uri] = await get_all_overlaps(to_base_uri, None, include_contains=False, include_within=True)
+            if math.isnan(float(percentage_from_base_uri_in_to_base_uri)):
+                found_parents[to_base_uri] = await get_all_overlaps(to_base_uri, None, include_areas=False, include_proportion=False, include_contains=False, include_within=True)
+            else:
+                found_parents[to_base_uri] = await get_all_overlaps(to_base_uri, None, include_contains=False, include_within=True)
         parent_area, all_within = found_parents[to_base_uri]
         for an_within in all_within:
-            within_uri = an_within["uri"]
+            if isinstance(an_within, str):
+                within_uri = an_within
+                if resource_type_prefix in within_uri:
+                    parent_amount[within_uri] = { "uri" : within_uri, "intersectionArea": float('nan'), "featureArea" : float('nan'), "forwardPercentage": float('nan'), "reversePercentage" : float('nan') } 
+                continue
+            within_uri = an_within['uri']
             # exclude things that contain this base unit but aren't in the same spatial hierarchy
             if not resource_type_prefix in within_uri:
                continue

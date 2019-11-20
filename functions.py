@@ -461,7 +461,7 @@ async def get_location_overlaps_crosswalk(from_uri, output_featuretype_uri, incl
         collated_uri_dict = {} 
         for an_contained in all_contained:
             from_base_uri = an_contained['uri'] 
-            if base_unit_prefixes in None:
+            if base_unit_prefix is None:
                 continue
             if not base_unit_prefix in from_base_uri:
                 # isn't actually a base uri but record information 

@@ -20,26 +20,29 @@ prefix_base_unit_lookup = {
 
 async def get_to_base_unit_and_type_prefix(from_uri, query_uri):
     '''
-    Find the base_unit and type prefix of a uri that is not of the from_uri type
+    Find the base_units and type prefix of a uri that is not of the from_uri type
     and is of the query_uri type
     '''
-    base_unit_prefix = None
+    base_unit_prefix = None 
     resource_type_prefix = None
     for key, value in prefix_base_unit_lookup.items():
         if not key in from_uri:
             if key in query_uri:
                 base_unit_prefix = value 
                 resource_type_prefix = key 
-                return base_unit_prefix, resource_type_prefix
-    return base_unit_prefix, resource_type_prefix
+                return base_unit_prefix , resource_type_prefix
+    return base_unit_prefix, resource_type_prefix 
 
-async def get_all_overlaps(target_uri, include_contains=True, include_within=True):
+async def get_all_overlaps(target_uri, output_featuretype_uri, include_contains=True, include_within=True):
     offset = 0
     all_overlaps = []
     while True:
-        results = list(await get_location_overlaps(target_uri, None, True, True, include_within, include_contains, count=100000, offset=offset))
+        results = list(await get_location_overlaps(target_uri, output_featuretype_uri, True, True, include_within, include_contains, count=100000, offset=offset))
         length = results[0]['count']
-        my_area = results[0]['featureArea'] 
+        if "featureArea" in results[0].keys():
+            my_area = results[0]['featureArea'] 
+        else:
+            my_area = 0 
         all_overlaps = all_overlaps + results[1]
         if length < 100000:
             break
@@ -452,11 +455,11 @@ async def get_location_overlaps_crosswalk(from_uri, output_featuretype_uri, incl
     found_parents = {}
     if not base_unit_prefix in from_uri:
         #This must be a parent unit so get everything contained and find base units
-        my_area, all_contained = await get_all_overlaps(from_uri, include_contains=True, include_within=False)
+        my_area, all_contained = await get_all_overlaps(from_uri, None, include_contains=True, include_within=False)
         collated_uri_dict = {} 
         for an_contained in all_contained:
             from_base_uri = an_contained['uri'] 
-            if base_unit_prefix is None:
+            if base_unit_prefixes in None:
                 continue
             if not base_unit_prefix in from_base_uri:
                 # isn't actually a base uri but record information 
@@ -473,10 +476,9 @@ async def get_location_overlaps_crosswalk(from_uri, output_featuretype_uri, incl
     for aparent in parents:
         if not output_featuretype_uri is None:
             type_match = await check_type(aparent['uri'], output_featuretype_uri)
-            if type_match:
-               final_parents.append(aparent)
-            else:
+            if not type_match:
                continue
+        final_parents.append(aparent)
         area_from_uri = float(my_area)
         area_parent = float(aparent["featureArea"])
         area_from_uri_in_parent = aparent["intersectionArea"]
@@ -511,7 +513,7 @@ async def get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount,
     """
     find location overlaps across to "to" spatial hierarchies given a base uri in a "from" hierarchy
     """
-    my_area, all_overlaps = await get_all_overlaps(from_base_uri, include_contains=True, include_within=True)
+    my_area, all_overlaps = await get_all_overlaps(from_base_uri, None, include_contains=True, include_within=True)
     # if there is no area incoming from another higher level object then this is the U shaped query is a L shaped and starts 
     # from a base_uri therefore the area is the area of the base_uri
     if area_incoming is None:
@@ -523,21 +525,20 @@ async def get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount,
             continue
         if not base_unit_prefix in to_base_uri:
             continue
+        # found a real overlapping base unit
         to_feature_area = an_overlap["featureArea"]
-        # found an overlapping base unit
         if not to_base_uri in parent_amount.keys(): 
-            parent_amount[to_base_uri] = { "uri" : to_base_uri, "intersectionArea" : 0, "featureArea" : to_feature_area, "forwardPercentage" : 0 } 
+            parent_amount[to_base_uri] = { "uri" : to_base_uri, "intersectionArea" : 0, "featureArea" : to_feature_area} 
         percentage_from_base_uri_in_to_base_uri = an_overlap["forwardPercentage"]
         area_from_other_base_uri = (float(percentage_from_base_uri_in_to_base_uri) / 100 * area_incoming) 
         parent_amount[to_base_uri]["intersectionArea"] += area_from_other_base_uri 
-        parent_amount[to_base_uri]["forwardPercentage"] = percentage_from_base_uri_in_to_base_uri
-        parent_amount[to_base_uri]["reversePercentage"] = an_overlap["reversePercentage"] 
         # find all its parents
         if not to_base_uri in found_parents.keys():
-            found_parents[to_base_uri] = await get_all_overlaps(to_base_uri, include_contains=False, include_within=True)
+            found_parents[to_base_uri] = await get_all_overlaps(to_base_uri, None, include_contains=False, include_within=True)
         parent_area, all_within = found_parents[to_base_uri]
         for an_within in all_within:
             within_uri = an_within["uri"]
+            # exclude things that contain this base unit but aren't in the same spatial hierarchy
             if not resource_type_prefix in within_uri:
                continue
             feature_area = an_within["featureArea"]

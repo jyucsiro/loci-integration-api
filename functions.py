@@ -19,7 +19,39 @@ prefix_base_unit_lookup = {
 "linked.data.gov.au/dataset/gnaf-2016-05" : "linked.data.gov.au/dataset/gnaf-2016-05/address"
 }
 
+prefix_linkset_lookup = {
+"linked.data.gov.au/dataset/asgs2016" : ["http://linked.data.gov.au/dataset/mb16cc", "http://linked.data.gov.au/dataset/addr1605mb16" ],
+"linked.data.gov.au/dataset/geofabric" : ["http://linked.data.gov.au/dataset/addrcatch", "http://linked.data.gov.au/dataset/mb16cc" ],
+"linked.data.gov.au/dataset/gnaf-2016-05" : [ "http://linked.data.gov.au/dataset/addr1605mb16", "http://linked.data.gov.au/dataset/addrcatch"]
+}
 
+resource_type_linkset_lookup = {
+"http://linked.data.gov.au/def/asgs" : ["http://linked.data.gov.au/dataset/mb16cc", "http://linked.data.gov.au/dataset/addr1605mb16" ],
+"http://linked.data.gov.au/def/geofabric" : ["http://linked.data.gov.au/dataset/addrcatch", "http://linked.data.gov.au/dataset/mb16cc" ],
+"http://linked.data.gov.au/def/gnaf" : [ "http://linked.data.gov.au/dataset/addr1605mb16", "http://linked.data.gov.au/dataset/addrcatch"]
+}
+
+async def get_linkset_uri(from_uri, output_featuretype_uri):
+    '''
+    Get the linkset connecting an input uri and an output_featuretype_uri
+    '''
+    from_uri_compatible_linksets = [] 
+    resource_uri_compatible_linksets = [] 
+    if from_uri is None or output_featuretype_uri is None:
+        return None 
+    for uri_prefix, linksets in prefix_linkset_lookup.items():
+        if uri_prefix in from_uri:
+            from_uri_compatible_linksets = linksets
+    for resource_uri_prefix, linksets in resource_type_linkset_lookup.items():
+        if resource_uri_prefix in output_featuretype_uri:
+            resource_uri_compatible_linksets = linksets
+    results = list(set(resource_uri_compatible_linksets).intersection(from_uri_compatible_linksets))
+    if len(results) > 0:
+        return results[0]
+    else:
+        return None
+
+    
 async def get_to_base_unit_and_type_prefix(from_uri, query_uri):
     '''
     Find the base_units and type prefix of a uri that is not of the from_uri type
@@ -35,11 +67,11 @@ async def get_to_base_unit_and_type_prefix(from_uri, query_uri):
                 return base_unit_prefix , resource_type_prefix
     return base_unit_prefix, resource_type_prefix 
 
-async def get_all_overlaps(target_uri, output_featuretype_uri, include_areas=True, include_proportion=True, include_contains=True, include_within=True):
+async def get_all_overlaps(target_uri, output_featuretype_uri, linksets_filter, include_areas=True, include_proportion=True, include_contains=True, include_within=True):
     offset = 0
     all_overlaps = []
     while True:
-        results = list(await get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within, include_contains, count=100000, offset=offset))
+        results = list(await get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within, include_contains, linksets_filter, count=100000, offset=offset))
         length = results[0]['count']
         if "featureArea" in results[0].keys():
             my_area = results[0]['featureArea'] 
@@ -220,7 +252,6 @@ WHERE {
     }
 }
 """
-    print(sparql)
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
     linksets = []
     if 'results' not in resp:
@@ -449,6 +480,7 @@ async def get_location_overlaps_crosswalk(from_uri, output_featuretype_uri, incl
     # collate and sum all results for target units
     # calcuate final foward and reverse proportions by finding the proportions of passed over area that is in the target block (reversePercentage)
     # and the proportion of final passed over area as as a proportion of the orignal area (fowardProportion) 
+    linksets_filter = await get_linkset_uri(from_uri, output_featuretype_uri)
     base_unit_prefix, resource_type_prefix = await get_to_base_unit_and_type_prefix("", from_uri)
     # this is a base unit so continue to base unit logic
     parent_amount = {}
@@ -469,9 +501,9 @@ async def get_location_overlaps_crosswalk(from_uri, output_featuretype_uri, incl
             # found a base uri do base uri logic 
             percentage_from_uri_in_from_base_uri = float(an_contained["forwardPercentage"]) # This is the amount this base unit takes up of the parent unit
             area_parent = float(my_area) * percentage_from_uri_in_from_base_uri / 100 
-            await get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount, area_parent, percentage_from_uri_in_from_base_uri, from_base_uri)
+            await get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount, area_parent, percentage_from_uri_in_from_base_uri, from_base_uri, linksets_filter, output_featuretype_uri)
     else:
-        my_area = await get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount, None, 100, from_uri)
+        my_area = await get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount, None, 100, from_uri, linksets_filter, output_featuretype_uri)
 
     parents = parent_amount.values()
     final_parents = []
@@ -490,7 +522,7 @@ async def get_location_overlaps_crosswalk(from_uri, output_featuretype_uri, incl
                 proportion_area_of_from_uri = 1
             aparent["forwardPercentage"] = str(proportion_area_of_from_uri * 100)
         if not include_proportion and "forwardPercentage" in aparent.keys():
-           aparent.pop("fowardProportion", None)
+           aparent.pop("forwardPercentage", None)
         if include_proportion and not "reversePercentage" in aparent.keys():
             proportion_area_of_parent = area_from_uri_in_parent / area_parent
             if proportion_area_of_parent >= 1:
@@ -506,7 +538,7 @@ async def get_location_overlaps_crosswalk(from_uri, output_featuretype_uri, incl
         for key in aparent:
             value = aparent[key] 
             if isinstance(value, float) and math.isnan(value):
-                aparent[key] = "nan"
+                aparent[key] = "nan" 
     meta = {
         'count': len(final_parents),
         'offset': 0,
@@ -515,11 +547,11 @@ async def get_location_overlaps_crosswalk(from_uri, output_featuretype_uri, incl
         meta['featureArea'] = my_area
     return meta, list(final_parents)
 
-async def get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount, area_incoming, percentage_from_uri_in_from_base_uri, from_base_uri):
+async def get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount, area_incoming, percentage_from_uri_in_from_base_uri, from_base_uri, linksets_filter=None, output_featuretype_uri=None):
     """
     find location overlaps across to "to" spatial hierarchies given a base uri in a "from" hierarchy
     """
-    my_area, all_overlaps = await get_all_overlaps(from_base_uri, None, include_contains=True, include_within=True)
+    my_area, all_overlaps = await get_all_overlaps(from_base_uri, None, include_contains=True, include_within=True, linksets_filter=linksets_filter)
     # if there is no area incoming from another higher level object then this is the U shaped query is a L shaped and starts 
     # from a base_uri therefore the area is the area of the base_uri
     if area_incoming is None:
@@ -545,12 +577,15 @@ async def get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount,
             percentage_from_base_uri_in_to_base_uri = float('nan') 
         area_from_other_base_uri = (float(percentage_from_base_uri_in_to_base_uri) / 100 * area_incoming) 
         parent_amount[to_base_uri]["intersectionArea"] += area_from_other_base_uri 
+        if not output_featuretype_uri is None and await check_type(to_base_uri, output_featuretype_uri):
+            #this is already the target type so it is the "parent"
+            continue
         # find all its parents
         if not to_base_uri in found_parents.keys():
             if math.isnan(float(percentage_from_base_uri_in_to_base_uri)):
-                found_parents[to_base_uri] = await get_all_overlaps(to_base_uri, None, include_areas=False, include_proportion=False, include_contains=False, include_within=True)
+                found_parents[to_base_uri] = await get_all_overlaps(to_base_uri, None, None, include_areas=False, include_proportion=False, include_contains=False, include_within=True)
             else:
-                found_parents[to_base_uri] = await get_all_overlaps(to_base_uri, None, include_contains=False, include_within=True)
+                found_parents[to_base_uri] = await get_all_overlaps(to_base_uri, None, None, include_contains=False, include_within=True)
         parent_area, all_within = found_parents[to_base_uri]
         for an_within in all_within:
             if isinstance(an_within, str):
@@ -573,7 +608,7 @@ async def get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount,
     return my_area 
 
 
-async def get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within, include_contains, count=1000, offset=0):
+async def get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within, include_contains, linksets_filter=None, count=1000, offset=0):
     """
     :param target_uri:
     :type target_uri: str
@@ -581,6 +616,7 @@ async def get_location_overlaps(target_uri, output_featuretype_uri, include_area
     :type include_proportion: bool
     :type include_within: bool
     :type include_contains: bool
+    :type linkset_filter: str 
     :param count:
     :type count: int
     :param offset:
@@ -590,6 +626,7 @@ async def get_location_overlaps(target_uri, output_featuretype_uri, include_area
     overlaps_sparql = """\
 PREFIX geo: <http://www.opengis.net/ont/geosparql#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX ipo: <http://purl.org/dc/terms/isPartOf> 
 PREFIX geox: <http://linked.data.gov.au/def/geox#>
 PREFIX qb4st: <http://www.w3.org/ns/qb4st/>
 PREFIX epsg: <http://www.opengis.net/def/crs/EPSG/0/>
@@ -597,12 +634,14 @@ PREFIX dt: <http://linked.data.gov.au/def/datatype/>
 SELECT <SELECTS>
 WHERE {
     {
-        {
+        { 
            ?s1 rdf:subject <URI> ;
+           <LINKSET_FILTER>
            rdf:predicate geox:transitiveSfOverlap;
            rdf:object ?o  .
         } UNION {
            ?s2 rdf:subject <URI> ;
+           <LINKSET_FILTER>
            rdf:predicate geo:sfOverlaps;
            rdf:object ?o  .
         }
@@ -618,6 +657,7 @@ GROUP BY ?o
     contains_sparql = """\
     PREFIX geo: <http://www.opengis.net/ont/geosparql#>
     PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+    PREFIX ipo: <http://purl.org/dc/terms/isPartOf> 
     PREFIX geox: <http://linked.data.gov.au/def/geox#>
     PREFIX qb4st: <http://www.w3.org/ns/qb4st/>
     PREFIX epsg: <http://www.opengis.net/def/crs/EPSG/0/>
@@ -626,6 +666,7 @@ GROUP BY ?o
     WHERE {
         {  
             ?s2 rdf:subject <URI> ;
+            <LINKSET_FILTER>
             rdf:predicate geo:sfContains;
             rdf:object ?o  .
         }
@@ -642,6 +683,7 @@ GROUP BY ?o
     PREFIX geo: <http://www.opengis.net/ont/geosparql#>
     PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
     PREFIX geox: <http://linked.data.gov.au/def/geox#>
+    PREFIX ipo: <http://purl.org/dc/terms/isPartOf> 
     PREFIX qb4st: <http://www.w3.org/ns/qb4st/>
     PREFIX epsg: <http://www.opengis.net/def/crs/EPSG/0/>
     PREFIX dt: <http://linked.data.gov.au/def/datatype/>
@@ -649,6 +691,7 @@ GROUP BY ?o
     WHERE {
         {  
             ?s2 rdf:subject <URI> ;
+            <LINKSET_FILTER>
             rdf:predicate geo:sfWithin;
             rdf:object ?o  .
         }
@@ -686,6 +729,7 @@ GROUP BY ?o
         UNION 
         {
             ?s3 rdf:subject <URI> ;
+                <LINKSET_FILTER>
                 rdf:predicate geo:sfContains ;
                 rdf:object ?i 
         } .
@@ -694,6 +738,7 @@ GROUP BY ?o
         UNION 
         {
             ?s4 rdf:subject ?o ;
+                <LINKSET_FILTER>
                 rdf:predicate geo:sfContains ;
                 rdf:object ?i 
         } .
@@ -715,8 +760,16 @@ GROUP BY ?o
     sparql = overlaps_sparql.replace("<SELECTS>", use_selects)
     sparql = sparql.replace("<EXTRAS>", extras)
     sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+    if not linksets_filter is None:
+        sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
+    else: 
+        sparql = sparql.replace("<LINKSET_FILTER>", "")
     overlaps = []
     bindings = []
+    if not linksets_filter is None:
+        sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
+    else: 
+        sparql = sparql.replace("<LINKSET_FILTER>", "")
     await query_build_response_bindings(sparql, count, offset, bindings)
     extras = ""
     if include_contains:
@@ -727,6 +780,10 @@ GROUP BY ?o
         sparql = contains_sparql.replace("<SELECTS>", use_selects)
         sparql = sparql.replace("<EXTRAS>", extras)
         sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+        if not linksets_filter is None:
+            sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
+        else: 
+            sparql = sparql.replace("<LINKSET_FILTER>", "")
         await query_build_response_bindings(sparql, count, offset, bindings)
         extras = ""
     if include_within:
@@ -737,6 +794,10 @@ GROUP BY ?o
         sparql = within_sparql.replace("<SELECTS>", use_selects)
         sparql = sparql.replace("<EXTRAS>", extras)
         sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+        if not linksets_filter is None:
+            sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
+        else: 
+            sparql = sparql.replace("<LINKSET_FILTER>", "")
         await query_build_response_bindings(sparql, count, offset, bindings)
     if len(bindings) < 1:
         return {'count': 0, 'offset': offset}, overlaps

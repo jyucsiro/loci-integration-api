@@ -489,7 +489,7 @@ async def get_location_overlaps_crosswalk(from_uri, output_featuretype_uri, incl
     found_parents = {}
     if not base_unit_prefix in from_uri:
         #This must be a parent unit so get everything contained and find base units
-        my_area, all_contained = await get_all_overlaps(from_uri, None, include_contains=True, include_within=False)
+        my_area, all_contained = await get_all_overlaps(from_uri, None, None, include_contains=True, include_within=False)
         collated_uri_dict = {} 
         for an_contained in all_contained:
             from_base_uri = an_contained['uri'] 

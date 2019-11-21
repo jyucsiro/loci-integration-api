@@ -191,8 +191,8 @@ class Overlaps(Resource):
         count = int(next(iter(request.args.getlist('count', [1000]))))
         offset = int(next(iter(request.args.getlist('offset', [0]))))
         target_uri = str(next(iter(request.args.getlist('uri'))))
-        if 'output_featuretype_uri'  in request.args:
-            output_featuretype_uri = str(next(iter(request.args.getlist('output_featuretype_uri'))))
+        if 'output_type'  in request.args:
+            output_featuretype_uri = str(next(iter(request.args.getlist('output_type'))))
         else:
             output_featuretype_uri = None
         include_areas = str(next(iter(request.args.getlist('areas', ['false']))))

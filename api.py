@@ -211,7 +211,7 @@ class Overlaps(Resource):
                                                         include_contains, count, offset)
         else:
             meta, overlaps = await get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within,
-                                                        include_contains, count, offset)
+                                                        include_contains, None, count, offset)
 
         response = {
             "meta": meta,

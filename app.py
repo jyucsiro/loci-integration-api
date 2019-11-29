@@ -5,8 +5,9 @@ LOCI Integrator API
 Copyright 2019 CSIRO Land and Water
 
 @author Ashley Sommer <Ashley.Sommer@csiro.au>
+@author Ben Leighton <Benjamin.Leighton@csiro.au>
 """
-__author__ = "Ashley Sommer"
+__authors__ = "Ashley Sommer, Ben Leighton"
 __email__ = "Ashley.Sommer@csiro.au"
 __maintainer__ = "Ashley Sommer <Ashley.Sommer@csiro.au>"
 __copyright__ = "Copyright 2019 CSIRO Land and Water"
@@ -36,7 +37,7 @@ def create_app():
     |_____\___/ \____|___| |___|_| \_| |_| |_____\____|_| \_/_/   \_|_| \___/|_| \_\ /_/   \_|_|  |___|prod
     """
     app.config.SWAGGER_UI_DOC_EXPANSION = 'list'
-
+    app.config.RESPONSE_TIMEOUT = 4800
     # Register/Activate Sanic-CORS plugin with allow all origins
     _ = spf.register_plugin(cors, origins=r".*", automatic_options=True)
 

@@ -5,8 +5,9 @@ LOCI Integrator API
 Copyright 2019 CSIRO Land and Water
 
 @author Ashley Sommer <Ashley.Sommer@csiro.au>
+@author Ben Leighton <Benjamin.Leighton@csiro.au>
 """
-__author__ = "Ashley Sommer"
+__authors__ = "Ashley Sommer, Ben Leighton"
 __email__ = "Ashley.Sommer@csiro.au"
 __maintainer__ = "Ashley Sommer <Ashley.Sommer@csiro.au>"
 __copyright__ = "Copyright 2019 CSIRO Land and Water"

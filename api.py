@@ -12,7 +12,7 @@ from functions import get_linksets, get_datasets, get_locations, get_location_is
 url_prefix = 'api/v1'
 
 api_v1 = Api(title="LOCI Integration API",
-             version="1.0",
+             version="1.1",
              prefix=url_prefix, doc='/'.join([url_prefix, "doc"]),
              default_mediatype="application/json",
              additional_css="/static/material_swagger.css")
@@ -241,15 +241,15 @@ class find_at_location(Resource):
         Note: count and offset do not currently work properly on /overlaps """
         count = int(next(iter(request.args.getlist('count', [1000]))))
         offset = int(next(iter(request.args.getlist('offset', [0]))))
-        lon = float(next(iter(request.args.getlist('lon', None)))) 
-        lat = float(next(iter(request.args.getlist('lat', None)))) 
-        loci_type = str(next(iter(request.args.getlist('loci_type', 'mb')))) 
+        lon = float(next(iter(request.args.getlist('lon', None))))
+        lat = float(next(iter(request.args.getlist('lat', None))))
+        loci_type = str(next(iter(request.args.getlist('loci_type', 'mb'))))
         meta, locations = await get_at_location(lat, lon, loci_type, count, offset)
         response = {
             "meta": meta,
             "locations": locations,
         }
-        
+
         return json(response, status=200)
 
 @ns_loc_func.route('/find-by-label')

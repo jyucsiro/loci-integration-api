@@ -44,8 +44,8 @@ async def test_overlaps_within(test_cli, get_data):
         logging.debug("Expected Proportion {}".format(result_proportion))
         assert result_uri in results_uris.keys()
         logging.debug(results_uris[result_uri])
-        if "forwardProportion" in results_uris[result_uri].keys(): 
-            returned_proportion = float(results_uris[result_uri]["forwardProportion"])
+        if "forwardPercentage" in results_uris[result_uri].keys(): 
+            returned_proportion = float(results_uris[result_uri]["forwardPercentage"])
             logging.debug("Returned Proportion {}".format(returned_proportion))
             assert  returned_proportion == pytest.approx(result_proportion, 0.001)
     assert resp.status == 200

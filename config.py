@@ -13,3 +13,6 @@ ES_URL = CONFIG["ES_URL"] = "http://elasticsearch"
 ES_PORT = CONFIG["ES_ENDPOINT"] = "9200"
 ES_ENDPOINT = CONFIG["ES_ENDPOINT"] = \
     "{}:{}/_search".format(ES_URL, ES_PORT)
+
+
+GEOM_DATA_SVC_ENDPOINT = CONFIG["GEOM_DATA_SVC_ENDPOINT"] = "http://gds.loci.cat"

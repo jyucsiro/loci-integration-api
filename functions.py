@@ -5,7 +5,6 @@ from decimal import Decimal
 from aiohttp import ClientSession
 from aiohttp.client_exceptions import ClientConnectorError
 from config import TRIPLESTORE_CACHE_SPARQL_ENDPOINT
-from config import GEOBASE_ENDPOINT
 from config import ES_ENDPOINT
 from config import GEOM_DATA_SVC_ENDPOINT
 
@@ -911,9 +910,9 @@ async def get_at_location(lat, lon, loci_type="any", count=1000, offset=0):
     }
     http_ok = [200]
     if loci_type == 'any':
-       search_by_latlng_url = GEOM_DATA_SVC_ENDPOINT + "/search/latlng/{},{}".format(lat, lon)
+       search_by_latlng_url = GEOM_DATA_SVC_ENDPOINT + "/search/latlng/{},{}".format(lon,lat)
     else:
-       search_by_latlng_url = GEOM_DATA_SVC_ENDPOINT + "/search/latlng/{},{}/dataset/{}".format(lat, lon, loci_type)
+       search_by_latlng_url = GEOM_DATA_SVC_ENDPOINT + "/search/latlng/{},{}/dataset/{}".format(lon, lat, loci_type)
 
     try:
         resp = await gds_session.request('GET', search_by_latlng_url, params=params)

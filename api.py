@@ -12,7 +12,7 @@ from functions import get_linksets, get_datasets, get_locations, get_location_is
 url_prefix = 'api/v1'
 
 api_v1 = Api(title="LOCI Integration API",
-             version="1.1",
+             version="1.2",
              prefix=url_prefix, doc='/'.join([url_prefix, "doc"]),
              default_mediatype="application/json",
              additional_css="/static/material_swagger.css")

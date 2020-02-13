@@ -5,8 +5,8 @@ from decimal import Decimal
 from aiohttp import ClientSession
 from aiohttp.client_exceptions import ClientConnectorError
 from config import TRIPLESTORE_CACHE_SPARQL_ENDPOINT
-from config import GEOBASE_ENDPOINT
 from config import ES_ENDPOINT
+from config import GEOM_DATA_SVC_ENDPOINT
 
 from json import loads
 
@@ -893,33 +893,44 @@ async def get_at_location(lat, lon, loci_type="any", count=1000, offset=0):
     :type offset: int
     :return:
     """
-    if get_at_location.pool is None:
-        get_at_location.pool = await asyncpg.create_pool('postgresql://postgres:password@{}:5437/mydb'.format(GEOBASE_ENDPOINT), command_timeout=60, min_size=1, max_size=2)
-    conn = await get_at_location.pool.acquire()
+    loop = asyncio.get_event_loop()
+    try:
+        gds_session = get_at_location.session_cache[loop]
+    except KeyError:
+        gds_session = ClientSession(loop=loop)
+        get_at_location.session_cache[loop] = gds_session
     row = {}
     results = {}
     counter = 0
+    params = {
+       "_format" : "application/json"
+    }
+    formatted_resp = {
+        'ok': False
+    }
+    http_ok = [200]
+    if loci_type == 'any':
+       search_by_latlng_url = GEOM_DATA_SVC_ENDPOINT + "/search/latlng/{},{}".format(lon,lat)
+    else:
+       search_by_latlng_url = GEOM_DATA_SVC_ENDPOINT + "/search/latlng/{},{}/dataset/{}".format(lon, lat, loci_type)
+
     try:
-        if loci_type == 'mb' or loci_type == 'any':
-            row = await conn.fetchrow(
-                    'select mb_code_20 from "from" where ST_Intersects(ST_Transform(ST_GeomFromText(\'POINT(\' || $1 || \' \' || $2 || \')\', 4326),3577), "from".geom_3577) order by mb_code_20 limit $3 offset $4', str(lon), str(lat), count, offset)
-            if row is not None and len(row) > 0:
-                results["mb"] = ["http://linked.data.gov.au/dataset/asgs2016/meshblock/{}".format(row['mb_code_20'])]
-                counter += len(row)
-        if loci_type == 'cc' or loci_type == 'any':
-            row = await conn.fetchrow(
-                    'select hydroid from "to" where ST_Intersects(ST_Transform(ST_GeomFromText(\'POINT(\' || $1 || \' \' || $2 || \')\', 4326),3577), "to".geom_3577) order by hydroid limit $3 offset $4', str(lon), str(lat), count, offset)
-            if row is not None and len(row) > 0:
-                results["cc"] = ["http://linked.data.gov.au/dataset/geofabric/contractedcatchment/{}".format(row['hydroid'])]
-                counter += len(row)
-    finally:
-        await get_at_location.pool.release(conn)
+        resp = await gds_session.request('GET', search_by_latlng_url, params=params)
+        resp_content = await resp.text()
+        if resp.status not in http_ok:
+            formatted_resp['errorMessage'] = "Could not connect to the geometry data service at {}. Error code {}".format(GEOM_DATA_SVC_ENDPOINT, resp.status)
+            return formatted_resp
+        formatted_resp = loads(resp_content)
+        formatted_resp['ok'] = True
+    except ClientConnectorError:
+        formatted_resp['errorMessage'] = "Could not connect to the geometry data service at {}. Connection error thrown.".format(GEOM_DATA_SVC_ENDPOINT)
+        return formatted_resp
     meta = {
-        'count': counter,
+        'count': formatted_resp['count'],
         'offset': offset,
     }
-    return meta, results
-get_at_location.pool = None
+    return meta, formatted_resp
+get_at_location.session_cache = {}
 
 async def query_es_endpoint(query, limit=10, offset=0):
     """

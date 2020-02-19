@@ -30,10 +30,10 @@ def create_app():
     app = Sanic(__name__)
     spf = SanicPluginsFramework(app)
     app.config['LOGO'] = r"""
-     _     ___   ____ ___   ___ _   _ _____ _____ ____ ____     _  _____ ___  ____       _    ____ ___ 
+     _     ___   ____ ___   ___ _   _ _____ _____ ____ ____     _  _____ ___  ____       _    ____ ___
     | |   / _ \ / ___|_ _| |_ _| \ | |_   _| ____/ ___|  _ \   / \|_   _/ _ \|  _ \     / \  |  _ |_ _|
-    | |  | | | | |    | |   | ||  \| | | | |  _|| |  _| |_) | / _ \ | || | | | |_) |   / _ \ | |_) | | 
-    | |__| |_| | |___ | |   | || |\  | | | | |__| |_| |  _ < / ___ \| || |_| |  _ <   / ___ \|  __/| | 
+    | |  | | | | |    | |   | ||  \| | | | |  _|| |  _| |_) | / _ \ | || | | | |_) |   / _ \ | |_) | |
+    | |__| |_| | |___ | |   | || |\  | | | | |__| |_| |  _ < / ___ \| || |_| |  _ <   / ___ \|  __/| |
     |_____\___/ \____|___| |___|_| \_| |_| |_____\____|_| \_/_/   \_|_| \___/|_| \_\ /_/   \_|_|  |___|prod
     """
     app.config.SWAGGER_UI_DOC_EXPANSION = 'list'
@@ -42,9 +42,10 @@ def create_app():
     _ = spf.register_plugin(cors, origins=r".*", automatic_options=True)
 
     # Register/Activate Sanic-Restplus plugin
-    restplus_associated = spf.register_plugin(restplus)
+    restplus_associated = spf.register_plugin(restplus, _url_prefix="api")
 
     # Remove any previous apps from the api instance.
+    # (this is needed during testing, the test runner does calls create_app many times)
     api_v1.spf_reg = None
 
     # Register our LOCI Api on the restplus plugin

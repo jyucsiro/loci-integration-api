@@ -9,7 +9,7 @@ from sanic_restplus import Api, Resource, fields
 from functions import get_linksets, get_datasets, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label
 
 
-url_prefix = 'api/v1'
+url_prefix = '/v1'
 
 api_v1 = Api(title="LOCI Integration API",
              version="1.2",

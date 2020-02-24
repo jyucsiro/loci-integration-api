@@ -14,4 +14,4 @@ ES_ENDPOINT = CONFIG["ES_ENDPOINT"] = \
     "{}:{}/_search".format(ES_URL, ES_PORT)
 
 
-GEOM_DATA_SVC_ENDPOINT = CONFIG["GEOM_DATA_SVC_ENDPOINT"] = "http://gds.loci.cat"
+GEOM_DATA_SVC_ENDPOINT = CONFIG["GEOM_DATA_SVC_ENDPOINT"] = "https://gds.loci.cat"

@@ -17,7 +17,7 @@ services:
       - ACME_AGREE=true
     volumes:
       - ./Caddyfile:/etc/Caddyfile
-      - /certs:/root/.caddy
+      - ./certs:/etc/ssl
     links:
       - api
     restart: always

@@ -15,7 +15,7 @@ RUN git -C loci-testdata pull || git clone https://github.com/CSIRO-enviro-infor
 ENTRYPOINT [ "tail", "-f", "/dev/null" ]
 
 FROM base AS localdevmode
-RUN apk add --no-cache vim 
+RUN apk add --no-cache vim
 ENTRYPOINT [ "tail", "-f", "/dev/null" ]
 
 

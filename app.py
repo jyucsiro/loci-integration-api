@@ -25,6 +25,8 @@ from api import api_v1
 
 HERE_DIR = os.path.dirname(__file__)
 
+import subprocess
+gitlabel = subprocess.check_output(["git", "describe", "--always"]).strip().decode("utf-8")
 
 def create_app():
     app = Sanic(__name__)
@@ -56,6 +58,7 @@ def create_app():
     dir_loc = os.path.abspath(os.path.join(HERE_DIR, "static"))
     app.static(uri="/static/", file_or_directory=dir_loc, name="material_swagger")
 
+
     @app.route("/")
     def index(request):
         """
@@ -67,7 +70,10 @@ def create_app():
         :rtype: HTTPResponse
         """
         html = "<h1>LOCI Integration API</h1>\
-        <a href=\"api/v1/doc\">Click here to go to the swaggerui doc page.</a>"
+        <a href=\"api/v1/doc\">Click here to go to the swaggerui doc page.</a>\
+        <pre>Git commit: <a href=\"{prefix}{commit}\">{commit}</a></pre>".format(
+              prefix="https://github.com/CSIRO-enviro-informatics/loci-integration-api/commit/", 
+              commit=str(gitlabel))
         return HTTPResponse(html, status=200, content_type="text/html")
 
     return app

@@ -391,6 +391,7 @@ WHERE {
 }
 """
     sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+    #print(sparql)
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
     locations = []
     if 'results' not in resp:
@@ -430,6 +431,7 @@ WHERE {
 }
 """
     sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+    #print(sparql)
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
     locations = []
     if 'results' not in resp:
@@ -779,7 +781,7 @@ GROUP BY ?o
         sparql = sparql.replace("<LINKSET_FILTER>", "")
     await query_build_response_bindings(sparql, count, offset, bindings)
     extras = ""
-    print(sparql)
+    #print(sparql)
     if include_contains:
         use_selects = selects
         if use_areas_sparql:
@@ -807,7 +809,7 @@ GROUP BY ?o
         else:
             sparql = sparql.replace("<LINKSET_FILTER>", "")
         await query_build_response_bindings(sparql, count, offset, bindings)
-    print(sparql)
+    #print(sparql)
     if len(bindings) < 1:
         return {'count': 0, 'offset': offset}, overlaps
     if not include_proportion and not include_areas:

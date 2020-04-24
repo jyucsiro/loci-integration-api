@@ -20,6 +20,9 @@ ns = api_v1.default_namespace
 
 TRUTHS = ("t", "T", "1")
 
+def str2bool(v):
+   return str(v).lower() in ("yes", "true", "t", "1")
+
 @ns.route('/linksets')
 class Linkset(Resource):
     """Operations on LOCI Linksets"""
@@ -87,7 +90,7 @@ class Datatypes(Resource):
             datasetType = str(next(iter(request.args.getlist('type'))))
         else:
             datasetType = None
-        basetype = bool(next(iter(request.args.getlist('basetype', [False]))))
+        basetype = str2bool(next(iter(request.args.getlist('basetype', [False]))))
         count = int(next(iter(request.args.getlist('count', [1000]))))
         offset = int(next(iter(request.args.getlist('offset', [0]))))
         meta, dataset_types = await get_dataset_types(datasetUri, datasetType, basetype, count, offset)

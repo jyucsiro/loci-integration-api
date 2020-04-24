@@ -6,7 +6,7 @@ from sanic.request import Request
 from sanic.exceptions import ServiceUnavailable
 from sanic_restplus import Api, Resource, fields
 
-from functions import get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label
+from functions import get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label, get_location_overlaps_intra_dataset_walk
 
 
 url_prefix = '/v1'
@@ -215,7 +215,11 @@ class Overlaps(Resource):
                     "required": False, "type": "boolean", "default": False}),
         ("output_type", {"description": "Restrict output uris to specified fully qualified uri",
                     "required": False, "type": "string", "default": ''}),
+        ("output_dataset_uri", {"description": "Restrict to output_dataset_uri",
+                    "required": False, "type": "string", "default": ''}),
         ("crosswalk", {"description": "Find overlaps event across different spatial hierarchies, some other parameters are ignored: contained, within are all set to true and paging is not currently implemented",
+                    "required": False, "type": "boolean", "default": False}),
+        ("intra_dataset_walk", {"description": "Find overlaps event across intra-dataset spatial hierarchies, some other parameters are ignored: contained, within are all set to true and paging is not currently implemented",
                     "required": False, "type": "boolean", "default": False}),
         ("count", {"description": "Number of locations to return.",
                    "required": False, "type": "number", "format": "integer", "default": 1000}),
@@ -232,19 +236,29 @@ class Overlaps(Resource):
             output_featuretype_uri = str(next(iter(request.args.getlist('output_type'))))
         else:
             output_featuretype_uri = None
+        if 'output_dataset_uri'  in request.args:
+            output_dataset_uri = str(next(iter(request.args.getlist('output_dataset_uri'))))
+        else:
+            output_dataset_uri = None
         include_areas = str(next(iter(request.args.getlist('areas', ['false']))))
         include_proportion = str(next(iter(request.args.getlist('proportion', ['false']))))
         include_contains = str(next(iter(request.args.getlist('contains', ['false']))))
         include_within = str(next(iter(request.args.getlist('within', ['false']))))
         crosswalk = str(next(iter(request.args.getlist('crosswalk', ['false']))))
+        intra_dataset_walk = str(next(iter(request.args.getlist('intra_dataset_walk', ['false']))))
         include_areas = include_areas[0] in TRUTHS
         include_proportion = include_proportion[0] in TRUTHS
         include_contains = include_contains[0] in TRUTHS
         include_within = include_within[0] in TRUTHS
         crosswalk = crosswalk[0] in TRUTHS
+        intra_dataset_walk = intra_dataset_walk[0] in TRUTHS
         if crosswalk:
             include_within = False
             meta, overlaps = await get_location_overlaps_crosswalk(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within,
+                                                        include_contains, count, offset)
+        elif intra_dataset_walk:
+            include_within = False
+            meta, overlaps = await get_location_overlaps_intra_dataset_walk(target_uri, output_featuretype_uri, output_dataset_uri, include_areas, include_proportion, include_within,
                                                         include_contains, count, offset)
         else:
             meta, overlaps = await get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within,

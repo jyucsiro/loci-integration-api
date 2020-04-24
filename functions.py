@@ -11,6 +11,8 @@ from config import LOCI_DATATYPES_STATIC_JSON
 
 from json import loads
 
+import requests
+
 from errors import ReportableAPIError
 
 #Until we have a better way of understanding fundamental units in spatial hierarchies
@@ -31,6 +33,31 @@ resource_type_linkset_lookup = {
 "http://linked.data.gov.au/def/geofabric" : ["http://linked.data.gov.au/dataset/addrcatch", "http://linked.data.gov.au/dataset/mb16cc" ],
 "http://linked.data.gov.au/def/gnaf" : [ "http://linked.data.gov.au/dataset/addr1605mb16", "http://linked.data.gov.au/dataset/addrcatch"]
 }
+
+LOCI_DATATYPES = [] 
+LOCI_DATATYPES_IDX_BY_PREFIX = {}
+LOCI_DATATYPES_IDX_BY_URI = {}
+LOCI_DATATYPES_BASE = []
+LOCI_DATATYPES_BASE_IDX_BY_DATASET_URI = {}
+LOCI_DATATYPES_BASE_IDX_BY_DATASET_PREFIX = {}
+try:
+   r = requests.get(LOCI_DATATYPES_STATIC_JSON)
+   if r.status_code in [200]:
+      #LOCI_DATATYPES = loads(r.json())
+      LOCI_DATATYPES = r.json()
+      for item in LOCI_DATATYPES:
+         LOCI_DATATYPES_IDX_BY_PREFIX[item['prefix']] = item
+         if item['uri'] not in LOCI_DATATYPES_IDX_BY_URI:
+            LOCI_DATATYPES_IDX_BY_URI[item['uri']] = {}
+         LOCI_DATATYPES_IDX_BY_URI[item['uri']] = { item['datasetUri'] :  item }
+      LOCI_DATATYPES_BASE = list(filter(lambda i: ('baseType' in i and i['baseType'] == True), LOCI_DATATYPES)) 
+      for item in LOCI_DATATYPES_BASE:
+         LOCI_DATATYPES_BASE_IDX_BY_DATASET_PREFIX[item['prefix']] = item
+         LOCI_DATATYPES_BASE_IDX_BY_DATASET_URI[item['datasetUri']] = item
+   else:
+      print("Error in getting {}".format(url))
+except ClientConnectorError:
+   print("Error in getting {}".format(url))
 
 async def get_linkset_uri(from_uri, output_featuretype_uri):
     '''
@@ -67,6 +94,39 @@ def get_to_base_unit_and_type_prefix(from_uri, query_uri):
                 resource_type_prefix = key
                 return base_unit_prefix, resource_type_prefix
     return base_unit_prefix, resource_type_prefix
+
+def get_base_unit_for_dataset(from_uri):
+    """
+    Find the base_unit for the dataset of the from_uri
+    """
+    base_unit = None
+    dataset_type = None
+    dataset_uri = None
+    #get from_uri type info
+    for curr_prefix in LOCI_DATATYPES_IDX_BY_PREFIX: 
+       if curr_prefix in from_uri:
+          #this is the prefix for from_uri
+          item = LOCI_DATATYPES_IDX_BY_PREFIX[curr_prefix]
+          dataset_type = item
+          #get dataset_uri
+          dataset_uri = item['datasetUri']
+          #get basetype for dataset_uri
+          #print(LOCI_DATATYPES_BASE_IDX_BY_DATASET_URI)
+          #print(dataset_uri)
+          if dataset_uri in LOCI_DATATYPES_BASE_IDX_BY_DATASET_URI:
+             base_unit = LOCI_DATATYPES_BASE_IDX_BY_DATASET_URI[dataset_uri]
+    return base_unit, dataset_type
+
+def get_base_unit_for_dataset_using_dataset_type(dataset_type_uri, dataset_uri):
+    """
+    Find the base_unit for the dataset of the from_uri
+    """
+    #print(LOCI_DATATYPES_IDX_BY_URI)
+    #print(dataset_type_uri)
+    dataset_type = LOCI_DATATYPES_IDX_BY_URI[dataset_type_uri][dataset_uri]
+    #dataset_uri = dataset_type['datasetUri']
+    base_unit = LOCI_DATATYPES_BASE_IDX_BY_DATASET_URI[dataset_uri]
+    return base_unit, dataset_type
 
 async def get_all_overlaps(target_uri, output_featuretype_uri, linksets_filter, include_areas=True, include_proportion=True, include_contains=True, include_within=True):
     offset = 0
@@ -515,6 +575,69 @@ async def query_build_response_bindings(sparql, count, offset, bindings):
         if len(resp['results']['bindings']) > 0:
             if len(resp['results']['bindings'][0].keys()) > 0:
                 bindings.extend(resp['results']['bindings'])
+
+async def get_location_overlaps_intra_dataset_walk(from_uri, output_featuretype_uri, dataset_uri, include_areas, include_proportion, include_within, include_contains, include_count=1000, offset=0):
+    """
+    find location overlaps across spatial hierarchies within a dataset
+    :param target_uri:
+    :param target_feature_type:
+    :type target_uri: str
+    :type include_areas: bool
+    :type include_proportion: bool
+    :type include_within: bool
+    :type include_contains: bool
+    :param count:
+    :type count: int
+    :param offset:
+    :type offset: int
+    :return:
+    """
+    # for a from_uri
+    # figure out which is the base unit for the dataset
+    from_base_unit, from_dataset_type = get_base_unit_for_dataset(from_uri)
+    if from_base_unit is None or from_dataset_type is None:
+       meta = {
+        'count': -1,
+        'offset': 0
+       }
+       return meta, {"error": "from_uri base unit or dataset type is not found"}
+
+    output_base_unit, output_dataset_type = get_base_unit_for_dataset_using_dataset_type(output_featuretype_uri, dataset_uri)
+    if output_base_unit is None or output_dataset_type is None:
+       meta = {
+        'count': -1,
+        'offset': 0
+       }
+       return meta, {"error": "target featuretype base unit or dataset type is not found"}
+
+    #check the base unit are the same
+    if from_base_unit["uri"] != output_base_unit["uri"]:
+       meta = {
+        'count': len(final_parents),
+        'offset': 0
+       }
+       return meta, {"error": "base units are mismatched! check if the feature and feature_type selected is within the same dataset"}
+    base_unit = from_base_unit
+    # get all contained objects for from_uri
+    # iterate over all responses
+    # if a "base unit" e.g a meshblock, add it to the list 
+    # this is a base unit so continue to base unit logic
+    parent_amount = {}
+    # cache of withins, base units in other hierarchary may overlap multiple times so don't need to find parents everytime
+    # just use cache of parents
+    found_parents = {}
+    final_parents = []
+    #if base_unit_prefix not in from_uri:
+        # This must be a parent unit so get everything contained and find base units
+    #    my_area, all_contained = await get_all_overlaps(from_uri, None, None, include_contains=True, include_within=False)
+    meta = {
+        'count': len(final_parents),
+        'offset': 0,
+        'base_unit' : base_unit ,
+        'from_dataset_type' : from_dataset_type,
+        'output_dataset_type' : output_dataset_type
+    }
+    return meta, list(final_parents)
 
 async def get_location_overlaps_crosswalk(from_uri, output_featuretype_uri, include_areas, include_proportion, include_within, include_contains, include_count=1000, offset=0):
     """

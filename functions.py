@@ -9,7 +9,7 @@ from config import ES_ENDPOINT
 from config import GEOM_DATA_SVC_ENDPOINT
 from config import LOCI_DATATYPES_STATIC_JSON
 
-from json import loads
+from json import loads, dumps
 
 import requests
 
@@ -48,8 +48,9 @@ try:
       for item in LOCI_DATATYPES:
          LOCI_DATATYPES_IDX_BY_PREFIX[item['prefix']] = item
          if item['uri'] not in LOCI_DATATYPES_IDX_BY_URI:
-            LOCI_DATATYPES_IDX_BY_URI[item['uri']] = {}
-         LOCI_DATATYPES_IDX_BY_URI[item['uri']] = { item['datasetUri'] :  item }
+            LOCI_DATATYPES_IDX_BY_URI[item['uri']] = { item['datasetUri'] :  item }
+         else:
+            LOCI_DATATYPES_IDX_BY_URI[item['uri']][item['datasetUri']] = item
       LOCI_DATATYPES_BASE = list(filter(lambda i: ('baseType' in i and i['baseType'] == True), LOCI_DATATYPES)) 
       for item in LOCI_DATATYPES_BASE:
          LOCI_DATATYPES_BASE_IDX_BY_DATASET_PREFIX[item['prefix']] = item
@@ -121,9 +122,14 @@ def get_base_unit_for_dataset_using_dataset_type(dataset_type_uri, dataset_uri):
     """
     Find the base_unit for the dataset of the from_uri
     """
-    #print(LOCI_DATATYPES_IDX_BY_URI)
-    #print(dataset_type_uri)
-    dataset_type = LOCI_DATATYPES_IDX_BY_URI[dataset_type_uri][dataset_uri]
+    print(LOCI_DATATYPES_IDX_BY_URI)
+    print(dumps(LOCI_DATATYPES_IDX_BY_URI, sort_keys=True, indent=4))
+    print(dataset_type_uri)
+    print(dataset_uri)
+    dataset_type = None
+    base_unit = None
+    if dataset_type_uri in LOCI_DATATYPES_IDX_BY_URI and dataset_uri in LOCI_DATATYPES_IDX_BY_URI[dataset_type_uri]:
+       dataset_type = LOCI_DATATYPES_IDX_BY_URI[dataset_type_uri][dataset_uri]
     #dataset_uri = dataset_type['datasetUri']
     base_unit = LOCI_DATATYPES_BASE_IDX_BY_DATASET_URI[dataset_uri]
     return base_unit, dataset_type

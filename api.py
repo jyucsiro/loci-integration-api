@@ -267,19 +267,22 @@ class find_at_location(Resource):
         ("lat", {"latitude": "Query point latitude",
                  "required": True, "type": "number", "format": "float"}),
         ("lon", {"longitude": "Query point longitude",
-                   "required": False, "type": "number", "format": "float"}),
+                   "required": True, "type": "number", "format": "float"}),
+        ("crs", {"crs": "Query point CRS. Default is 4326 (WGS 84)",
+                   "required": False, "type": "number", "format" : "integer", "default": 4326}),
         ("count", {"description": "Number of locations to return.",
                    "required": False, "type": "number", "format": "integer", "default": 1000}),
         ("offset", {"description": "Skip number of locations before returning count.",
                     "required": False, "type": "number", "format": "integer", "default": 0}),
     ]), security=None)
     async def get(self, request, *args, **kwargs):
-        """Gets all LOCI Locations that this target LOCI URI overlaps with\n
+        """Finds all LOCI features that intersect with this location, specified by the coordinates\n
         Note: count and offset do not currently work properly on /overlaps """
         count = int(next(iter(request.args.getlist('count', [1000]))))
         offset = int(next(iter(request.args.getlist('offset', [0]))))
         lon = float(next(iter(request.args.getlist('lon', None))))
         lat = float(next(iter(request.args.getlist('lat', None))))
+        crs = int(next(iter(request.args.getlist('crs', [4326]))))
         loci_type = str(next(iter(request.args.getlist('loci_type', 'mb'))))
         meta, locations = await get_at_location(lat, lon, loci_type, count, offset)
         response = {

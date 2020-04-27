@@ -284,7 +284,7 @@ class find_at_location(Resource):
         lat = float(next(iter(request.args.getlist('lat', None))))
         crs = int(next(iter(request.args.getlist('crs', [4326]))))
         loci_type = str(next(iter(request.args.getlist('loci_type', 'mb'))))
-        meta, locations = await get_at_location(lat, lon, loci_type, count, offset)
+        meta, locations = await get_at_location(lat, lon, loci_type, crs, count, offset)
         response = {
             "meta": meta,
             "locations": locations,
